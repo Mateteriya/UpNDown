@@ -31,9 +31,11 @@ if (authCallbackWrongShell) {
 }
 
 // Сохраняем флаги «пришли по ссылке» до того, как Supabase очистит hash
+// (основной bounce email→auth-callback — inline в index.html, до CSS)
 if (typeof window !== 'undefined' && window.location.hash) {
   const h = window.location.hash
   if (h.includes('type=signup')) sessionStorage.setItem('updown_from_email_confirm', '1')
+  else if (h.includes('type=recovery')) sessionStorage.setItem('updown_from_password_recovery', '1')
   else if (h.includes('access_token')) sessionStorage.setItem('updown_from_oauth_redirect', '1')
 }
 
@@ -56,6 +58,7 @@ import { RulesLabPage } from './ui/RulesLabPage'
 import { OrderStyleLabPage } from './ui/OrderStyleLabPage'
 import { AudioSfxLabPage } from './ui/AudioSfxLabPage'
 import { SoundGlyphLabPage } from './ui/SoundGlyphLabPage'
+import { StarGlyphLabPage } from './ui/StarGlyphLabPage'
 import './theme-standard.css'
 import './theme-neon.css'
 import './index.css'
@@ -64,12 +67,14 @@ import './styles/mobile-order-panel.css'
 import './styles/mobile-hand-l-frame.css'
 import './styles/menu-pc.css'
 import './styles/fonts-nunito-black.css'
+import './styles/fonts-display.css'
 import './styles/menu-mode-labels.css'
 import './styles/menu-guest-identity.css'
 import './styles/menu-signed-identity.css'
 import './styles/menu-brand-mark.css'
 import './styles/lobby-online-legend.css'
 import './styles/lobby-identity.css'
+import './styles/lobby-room.css'
 import './styles/account-lk-pc.css'
 import './styles/player-skill-stats.css'
 import './styles/name-avatar-modal.css'
@@ -79,6 +84,8 @@ import './styles/menu-glass-ladder.css'
 import './styles/lk-modals.css'
 import './styles/support-donate.css'
 import './styles/support-menu-button.css'
+import './styles/premium-page.css'
+import './styles/player-slot-dossier.css'
 import './styles/rules-screen.css'
 import './styles/rules-view.css'
 import './styles/tableChatSideEarMobile.css'
@@ -105,6 +112,12 @@ import './styles/plasma-turn-name-flow.css'
 import './styles/user-south-panel.css'
 /* Редактор аватарки — ПОСЛЕ index.css, иначе оверрайды не видны */
 import './styles/avatar-editor.css'
+/* Слоты: баланс ★ во внутреннем TL панели (не на круге аватара) */
+import './styles/south-avatar-chrome.css'
+/* Юг: cosmic tip/popover имени + правка позывного */
+import './styles/south-name-cosmic.css'
+/* Умные тиры ★ + бейдж без цифры на лице */
+import './styles/star-glyph-tiers.css'
 import './i18n'
 
 installPwaStaleRecovery()
@@ -142,6 +155,7 @@ const isOrderStyleLab = path === '/order-style-lab' || path.startsWith('/order-s
 const isRulesLab = path === '/rules-lab' || path.startsWith('/rules-lab/')
 const isAudioSfxLab = path === '/audio-sfx-lab' || path.startsWith('/audio-sfx-lab/')
 const isSoundGlyphLab = path === '/sound-glyph-lab' || path.startsWith('/sound-glyph-lab/')
+const isStarGlyphLab = path === '/star-glyph-lab' || path.startsWith('/star-glyph-lab/')
 // /mode-label-lab — локальная песочница меню; не прод-UI (не пушить как фичу меню)
 const needsDevLabGuard =
   isDemo ||
@@ -153,7 +167,8 @@ const needsDevLabGuard =
   isCosmogenesisDemo ||
   isModeLabelLab ||
   isOrderStyleLab ||
-  isSoundGlyphLab
+  isSoundGlyphLab ||
+  isStarGlyphLab
 const needsMusicStudioGuard = isAudioSfxLab
 
 function DemoGuard({ children }: { children: React.ReactNode }) {
@@ -245,6 +260,12 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <ThemeProvider>
         <DemoGuard>
           <SoundGlyphLabPage onBack={() => (window.location.href = '/')} />
+        </DemoGuard>
+      </ThemeProvider>
+    ) : isStarGlyphLab ? (
+      <ThemeProvider>
+        <DemoGuard>
+          <StarGlyphLabPage onBack={() => (window.location.href = '/')} />
         </DemoGuard>
       </ThemeProvider>
     ) : (

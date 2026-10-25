@@ -38,6 +38,10 @@ export function MenuCapsuleCosmicTip({
     null,
   );
 
+  /* Длинные RU-строки без wide раньше резались nowrap — включаем перенос автоматически */
+  const textLen = (text ?? '').trim().length;
+  const useWide = wide || textLen > 28 || Boolean(detail) || Boolean(children);
+
   useLayoutEffect(() => {
     if (!open) {
       setPos(null);
@@ -46,13 +50,15 @@ export function MenuCapsuleCosmicTip({
     const el = anchorRef.current;
     if (!el) return;
     const place = () => {
+      const tip = tipRef.current;
       const r = el.getBoundingClientRect();
       const pad = 12;
-      const measured = tipRef.current?.offsetWidth;
-      const half = (measured && measured > 0 ? measured : wide ? 240 : 180) / 2;
+      const measured = tip?.offsetWidth;
+      const half = (measured && measured > 0 ? measured : useWide ? 260 : 180) / 2;
       let left = r.left + r.width / 2;
       left = Math.min(Math.max(left, pad + half), window.innerWidth - pad - half);
-      const canAbove = r.top >= 56;
+      const tipH = tip?.offsetHeight || 48;
+      const canAbove = r.top >= tipH + pad + 8;
       const placeBelow = preferBelow || !canAbove;
       if (placeBelow) {
         setPos({ top: r.bottom + pad, left, place: 'below' });
@@ -61,17 +67,23 @@ export function MenuCapsuleCosmicTip({
       }
     };
     place();
-    const raf = requestAnimationFrame(place);
+    /* второй кадр — после wrap ширина/высота уже финальные */
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => {
+      place();
+      raf2 = requestAnimationFrame(place);
+    });
     window.addEventListener('scroll', place, true);
     window.addEventListener('resize', place);
     return () => {
-      cancelAnimationFrame(raf);
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
       window.removeEventListener('scroll', place, true);
       window.removeEventListener('resize', place);
     };
-  }, [open, anchorRef, wide, preferBelow, text, detail, children, onDismiss]);
+  }, [open, anchorRef, useWide, preferBelow, text, detail, children, onDismiss]);
 
-  if (!open || !pos || typeof document === 'undefined') return null;
+  if (!open || typeof document === 'undefined') return null;
 
   return createPortal(
     <div
@@ -81,16 +93,21 @@ export function MenuCapsuleCosmicTip({
       className={[
         'menu-capsule-cosmic-tip',
         'game-table-tooltip-cosmic',
-        wide ? 'menu-capsule-cosmic-tip--wide' : '',
+        useWide ? 'menu-capsule-cosmic-tip--wide' : '',
+        'menu-capsule-cosmic-tip--wrap',
         detail || children ? 'menu-capsule-cosmic-tip--with-detail' : '',
         children ? 'menu-capsule-cosmic-tip--with-preview' : '',
         onDismiss ? 'menu-capsule-cosmic-tip--dismissible' : '',
-        pos.place === 'below' ? 'menu-capsule-cosmic-tip--below' : '',
+        pos?.place === 'below' ? 'menu-capsule-cosmic-tip--below' : '',
         className ?? '',
       ]
         .filter(Boolean)
         .join(' ')}
-      style={{ top: pos.top, left: pos.left }}
+      style={
+        pos
+          ? { top: pos.top, left: pos.left }
+          : { top: -9999, left: -9999, visibility: 'hidden' as const }
+      }
     >
       {onDismiss ? (
         <button

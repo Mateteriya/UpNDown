@@ -33,6 +33,7 @@ function formatPartyDate(iso: string): string {
 }
 
 function PartyHistoryTeaser({ row }: { row: PartyHistoryRecord }) {
+  const t = useT();
   const chipsStr = `${row.humanChips >= 0 ? '+' : ''}${row.humanChips}`;
   return (
     <div className="rating-modal__history-row">
@@ -44,7 +45,7 @@ function PartyHistoryTeaser({ row }: { row: PartyHistoryRecord }) {
         <span className="rating-modal__history-body">
           Место {row.humanPlace} · {row.humanScore >= 0 ? '+' : ''}
           {row.humanScore} очк.
-          {row.humanWon ? ' · победа' : ''}
+          {row.humanWon ? ` · ${t('archive.win')}` : ''}
         </span>
         <span style={{ fontSize: 14, fontWeight: 700, color: chipColor(row.humanChips) }}>
           {chipsStr} фиш.

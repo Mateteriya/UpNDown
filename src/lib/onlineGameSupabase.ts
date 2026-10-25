@@ -1700,6 +1700,81 @@ async function fetchLeaderboardAnon(limit: number): Promise<LeaderboardResult> {
 
 let lastGoodLeaderboardRows: LeaderboardRow[] = [];
 
+export type HallOfFameScope = 'rated_online' | 'online_all' | 'offline_cloud';
+export type HallOfFameKind = 'party_score' | 'exact_deal' | 'perfect_party';
+
+export type HallOfFameRow = {
+  rank: number;
+  user_id: string;
+  kind: string;
+  value: number;
+  tier: string | null;
+  source: string;
+  is_rated: boolean;
+  created_at: string;
+  match_id: string | null;
+  display_name: string;
+};
+
+export type HallOfFameResult = {
+  ok: boolean;
+  kind: string;
+  scope: string;
+  rows: HallOfFameRow[];
+  error?: string;
+};
+
+export async function getHallOfFame(
+  kind: HallOfFameKind = 'party_score',
+  scope: HallOfFameScope = 'rated_online',
+  limit = 25,
+): Promise<HallOfFameResult> {
+  if (!supabase) {
+    return { ok: false, kind, scope, rows: [], error: 'Supabase не настроен' };
+  }
+  const { data, error } = await supabase.rpc('updown_get_hall_of_fame', {
+    p_kind: kind,
+    p_scope: scope,
+    p_limit: limit,
+  });
+  if (error) {
+    return { ok: false, kind, scope, rows: [], error: error.message };
+  }
+  const payload = data as { ok?: boolean; kind?: string; scope?: string; rows?: HallOfFameRow[] } | null;
+  return {
+    ok: payload?.ok !== false,
+    kind: payload?.kind ?? kind,
+    scope: payload?.scope ?? scope,
+    rows: Array.isArray(payload?.rows) ? payload!.rows! : [],
+    error: payload?.ok === false ? 'hall_of_fame_failed' : undefined,
+  };
+}
+
+export async function insertMatchHighlights(opts: {
+  matchId?: string | null;
+  source: 'offline' | 'online';
+  isRated: boolean;
+  highlights: { kind: string; value: number; tier?: string | null; labelKey?: string }[];
+}): Promise<{ ok: boolean; error?: string }> {
+  if (!supabase || !opts.highlights.length) return { ok: true };
+  const rows = opts.highlights.map((h) => ({
+    kind: h.kind,
+    value: h.value,
+    tier: h.tier ?? null,
+    payload: { labelKey: h.labelKey ?? null },
+  }));
+  const { data, error } = await supabase.rpc('updown_insert_match_highlights', {
+    p_match_id: opts.matchId ?? null,
+    p_source: opts.source,
+    p_is_rated: opts.isRated,
+    p_rows: rows,
+  });
+  if (error) return { ok: false, error: error.message };
+  const payload = data as { ok?: boolean; error?: string } | null;
+  if (payload?.ok === false) return { ok: false, error: payload.error };
+  return { ok: true };
+}
+
 export async function getLeaderboard(limit = 50): Promise<LeaderboardResult> {
   if (!supabase) {
     return parseLeaderboardPayload(null, 'Supabase не настроен');

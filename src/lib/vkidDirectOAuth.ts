@@ -1,16 +1,28 @@
 /**
  * Прямой вход VK ID (минуя Supabase custom:vkid / GoTrue state).
  * PKCE на клиенте → VK → bridge → auth-callback → Edge exchange → setSession.
+ *
+ * На LAN / localhost VK требует «базовый домен» публичного сайта —
+ * старт на https://up2down.online/vk-lan-bridge.html → exchange на online
+ * auth-callback → hop на LAN auth-callback с #access_token.
  */
 
-import { getLocalAuthCallbackUrl } from './nativeAuth';
+import { getLocalAuthCallbackUrl, rememberAuthAppReturn } from './nativeAuth';
+import { needsVkidLanBridge } from './oauthProviders';
 import { supabase } from './supabase';
 
 const VK_CLIENT_ID =
   (typeof import.meta !== 'undefined' && String(import.meta.env?.VITE_VK_CLIENT_ID || '')) ||
   '54819532';
 
+/** Публичный origin для моста VK←LAN (зеркало можно задать env). */
+const VK_LAN_BRIDGE_ORIGIN =
+  (typeof import.meta !== 'undefined' &&
+    String(import.meta.env?.VITE_PUBLIC_WEB_ORIGIN || '').replace(/\/$/, '')) ||
+  'https://up2down.online';
+
 const PKCE_STORAGE_PREFIX = 'updown_vk_pkce_';
+export const VK_LAN_FINAL_RET_KEY = 'updown_vk_lan_final_ret';
 
 function b64url(bytes: ArrayBuffer | Uint8Array): string {
   const u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
@@ -44,10 +56,55 @@ function exchangeUrl(): string {
   return `${base}/functions/v1/vk-oauth-exchange`;
 }
 
+/** Только LAN / loopback auth-callback — куда можно безопасно hop'нуть токены. */
+export function isSafeLanAuthCallbackUrl(raw: string): boolean {
+  try {
+    const u = new URL(raw);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
+    if (!/auth-callback\.html/i.test(u.pathname)) return false;
+    const h = u.hostname.toLowerCase();
+    if (h === 'localhost' || h === '127.0.0.1' || h === '[::1]' || h === '::1') return true;
+    if (/^192\.168\.\d{1,3}\.\d{1,3}$/.test(h)) return true;
+    if (/^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(h)) return true;
+    const m = /^172\.(\d{1,2})\.\d{1,3}\.\d{1,3}$/.exec(h);
+    if (m) {
+      const n = Number(m[1]);
+      if (n >= 16 && n <= 31) return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+export type VkidCompleteResult = {
+  error: Error | null;
+  /** После успешного exchange на online — прыжок на LAN с hash-токенами. */
+  lanHop?: { url: string; access_token: string; refresh_token: string };
+};
+
 export async function startVkidDirectOAuth(): Promise<{ error: Error | null }> {
   try {
+    rememberAuthAppReturn();
     const ret = getLocalAuthCallbackUrl();
     if (!ret) return { error: new Error('Нет URL для возврата после VK') };
+
+    /**
+     * Вечеринка :3001 / localhost: VK не принимает IP как «базовый домен».
+     * Цепочка: LAN → online /vk-lan-bridge.html (PKCE там) → VK → Edge bridge
+     * → online auth-callback (exchange) → LAN auth-callback #access_token.
+     */
+    if (needsVkidLanBridge()) {
+      const sb = String(import.meta.env?.VITE_SUPABASE_URL || '').replace(/\/$/, '');
+      if (!sb) return { error: new Error('VITE_SUPABASE_URL не задан') };
+      const bridgePage = new URL('/vk-lan-bridge.html', VK_LAN_BRIDGE_ORIGIN + '/');
+      bridgePage.searchParams.set('ret', ret);
+      bridgePage.searchParams.set('sb', sb);
+      bridgePage.searchParams.set('cid', VK_CLIENT_ID);
+      window.location.assign(bridgePage.toString());
+      return { error: null };
+    }
+
     const nonce = crypto.randomUUID();
     const verifier = randomVerifier();
     const challenge = await challengeS256(verifier);
@@ -62,7 +119,8 @@ export async function startVkidDirectOAuth(): Promise<{ error: Error | null }> {
     vk.searchParams.set('client_id', VK_CLIENT_ID);
     vk.searchParams.set('redirect_uri', bridgeRedirectUri());
     vk.searchParams.set('state', packState(nonce, ret));
-    vk.searchParams.set('scope', 'email');
+    /** Пробел, не запятая — см. доки VK ID scopes. */
+    vk.searchParams.set('scope', 'vkid.personal_info email');
     vk.searchParams.set('code_challenge', challenge);
     vk.searchParams.set('code_challenge_method', 'S256');
 
@@ -74,7 +132,7 @@ export async function startVkidDirectOAuth(): Promise<{ error: Error | null }> {
 }
 
 /** Вызвать с auth-callback при ?vk_bridge=1 */
-export async function completeVkidDirectOAuthFromUrl(href: string): Promise<{ error: Error | null }> {
+export async function completeVkidDirectOAuthFromUrl(href: string): Promise<VkidCompleteResult> {
   if (!supabase) return { error: new Error('Supabase не настроен') };
   const url = new URL(href);
   if (url.searchParams.get('vk_bridge') !== '1') {
@@ -129,6 +187,21 @@ export async function completeVkidDirectOAuthFromUrl(href: string): Promise<{ er
     refresh_token: refresh,
   });
   if (error) return { error };
+
+  let lanFinal = '';
+  try {
+    lanFinal = sessionStorage.getItem(VK_LAN_FINAL_RET_KEY) || '';
+    sessionStorage.removeItem(VK_LAN_FINAL_RET_KEY);
+  } catch {
+    /* ignore */
+  }
+  if (lanFinal && isSafeLanAuthCallbackUrl(lanFinal)) {
+    return {
+      error: null,
+      lanHop: { url: lanFinal, access_token: access, refresh_token: refresh },
+    };
+  }
+
   try {
     sessionStorage.setItem('updown_from_oauth_redirect', '1');
   } catch {

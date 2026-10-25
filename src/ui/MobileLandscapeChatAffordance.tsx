@@ -23,6 +23,7 @@ import {
   type MobileLsHandDiskPos,
   type MobileLsSouthMiniAnchor,
 } from './mobileLandscapeChatContract';
+import { useT } from '../i18n';
 
 export type MobileLandscapeChatAffordanceProps = {
   mode: MobileLsChatAffordanceMode;
@@ -112,6 +113,7 @@ export function MobileLandscapeChatAffordance({
   diskHome = 'hand',
   miniAnchor = 'south-panel',
 }: MobileLandscapeChatAffordanceProps) {
+  const t = useT();
   const reactId = useId().replace(/:/g, '');
   const typing = Boolean(typingLine?.trim());
   const showTyping = mode === 'hand-disk' && typing;
@@ -418,10 +420,10 @@ export function MobileLandscapeChatAffordance({
   );
 
   const label = showTyping
-    ? `Открыть чат. ${typingLine!.trim()}`
+    ? t('chat.openTyping', { line: typingLine!.trim() })
     : unread
-      ? 'Открыть чат. Есть новые сообщения'
-      : 'Открыть чат';
+      ? t('chat.openUnread')
+      : t('chat.openChat');
 
   const diskInner =
     mode === 'hand-disk' ? (
@@ -473,7 +475,7 @@ export function MobileLandscapeChatAffordance({
             className="mobile-ls-chat-affordance__crystal mobile-ls-chat-affordance__crystal--disk"
           />
           <span className="mobile-ls-chat-affordance__disk-core" />
-          <span className="mobile-ls-chat-affordance__disk-glyph">Чат</span>
+          <span className="mobile-ls-chat-affordance__disk-glyph">{t('chat.title')}</span>
         </span>
         {unread ? <span className="mobile-ls-chat-affordance__dot" aria-hidden /> : null}
         {showTyping ? (
@@ -490,7 +492,7 @@ export function MobileLandscapeChatAffordance({
           gid={`${reactId}-mini`}
           className="mobile-ls-chat-affordance__crystal mobile-ls-chat-affordance__crystal--mini"
         />
-        <span className="mobile-ls-chat-affordance__mini-label">Чат</span>
+        <span className="mobile-ls-chat-affordance__mini-label">{t('chat.title')}</span>
         {showUnread ? <span className="mobile-ls-chat-affordance__dot" aria-hidden /> : null}
       </>
     );
@@ -516,7 +518,7 @@ export function MobileLandscapeChatAffordance({
         .join(' ')}
       data-upnd-table-chat-toggle=""
       aria-label={label}
-      title={mode === 'hand-disk' ? `${label}. Потяните, чтобы переместить` : label}
+      title={mode === 'hand-disk' ? t('chat.openDragTitle', { label }) : label}
       onClick={mode === 'hand-disk' ? undefined : onOpen}
       onPointerDown={mode === 'hand-disk' ? onDiskPointerDown : undefined}
       onPointerEnter={expandMiniTemporarily}
@@ -568,9 +570,9 @@ export function MobileLandscapeChatAffordance({
               ]
                 .filter(Boolean)
                 .join(' ')}
-              aria-label="Открыть чат справа от сукна"
+              aria-label={t('chat.openSideOfFelt')}
               aria-pressed={placement === 'side'}
-              title="Чат справа от сукна"
+              title={t('chat.chatSideOfFelt')}
               onPointerDown={onPlaceTick('side')}
             >
               <PlacementTickGlyph dir="side" gid={`${reactId}-tick-e`} />
@@ -586,9 +588,9 @@ export function MobileLandscapeChatAffordance({
               ]
                 .filter(Boolean)
                 .join(' ')}
-              aria-label="Открыть чат снизу, под Югом"
+              aria-label={t('chat.openBelowSouth')}
               aria-pressed={placement === 'bottom'}
-              title="Чат снизу под Югом"
+              title={t('chat.chatBelowSouth')}
               onPointerDown={onPlaceTick('bottom')}
             >
               <PlacementTickGlyph dir="bottom" gid={`${reactId}-tick-s`} />

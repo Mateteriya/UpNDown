@@ -433,6 +433,12 @@
   .orb--sm .orb__disc { width: 52px; height: 52px; }
   .orb--sm .orb__disc svg { width: 22px; height: 22px; }
   .orb--sm { font-size: 0.56rem; gap: 4px; }
+  .table-card__actions .orb--cyan { color: #67e8f9; }
+  .table-card__actions .orb--gold { color: #fbbf24; }
+  .table-card__actions .orb--go { color: #5eead4; }
+  .table-card__actions .orb--close { color: #fb7185; }
+  .table-card__actions .orb:hover,
+  .table-card__actions .orb:focus-visible { filter: brightness(1.12); }
 
   /* места + тумблер */
   .seat-row { display: flex; gap: 10px; align-items: center; }
@@ -738,8 +744,9 @@
     background: linear-gradient(90deg, rgba(232,121,249,0.16), rgba(4,2,14,0.75), rgba(232,121,249,0.1));
   }
   .table-card .qr-hint:hover {
-    color: #fff;
-    filter: brightness(1.08);
+    color: #67e8f9;
+    filter: brightness(1.1);
+    text-shadow: 0 0 10px rgba(34,211,238,0.45);
   }
   body.club-mode .table-card .qr-hint { font-size: 1.05rem; padding: 12px 16px; }
 
@@ -1136,88 +1143,273 @@
 
   .table-card__main { min-width: 0; display: flex; flex-direction: column; gap: 0; align-self: stretch; justify-content: center; }
 
-  /* ×3 — одна линия из 3 чипов */
+  /* ×3 — одна линия из 3 чипов; ×4 — сетка 2×2 */
   .roster {
-    margin: 0; padding: 6px; gap: 5px;
+    margin: 0;
+    padding: 8px 6px;
+    gap: 6px;
     background: rgba(4, 2, 14, 0.55);
     box-shadow: inset 0 0 16px rgba(0,0,0,0.28);
+    align-items: center;
+    min-height: 92px;
+    box-sizing: border-box;
+    overflow: visible; /* hover-капсула имени может выйти за край */
   }
   .roster--3 {
-    display: grid; grid-template-columns: repeat(3, 1fr);
-    border-radius: 999px; border: 1px solid rgba(34,211,238,0.35);
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    border-radius: 999px;
+    border: 1px solid rgba(34,211,238,0.35);
     background: linear-gradient(90deg, rgba(34,211,238,0.12), rgba(4,2,14,0.55) 40%, rgba(34,211,238,0.08));
+    padding: 10px 10px;
+    column-gap: 4px;
   }
-  /* ×4 — сетка 2×2 */
   .roster--4 {
-    display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr;
-    border-radius: 12px; border: 1px solid rgba(232,121,249,0.4);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    border-radius: 14px;
+    border: 1px solid rgba(232,121,249,0.4);
     background: linear-gradient(135deg, rgba(232,121,249,0.14), rgba(4,2,14,0.55) 50%, rgba(252,211,77,0.08));
+    min-height: 108px;
+    padding: 8px;
   }
   .seat-chip {
-    display: flex; align-items: center; gap: 6px; min-width: 0;
-    padding: 5px 6px 5px 5px; border-radius: 10px;
-    border: 1px solid rgba(167,139,250,0.25);
-    background: rgba(6,4,22,0.45);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    height: 100%;
+    padding: 4px 6px;
+    border: 0;
+    border-radius: 12px;
+    background: transparent;
+    overflow: hidden;
+    box-sizing: border-box;
   }
   .roster--3 .seat-chip {
-    flex-direction: column; text-align: center; gap: 3px;
-    border-radius: 999px; padding: 6px 4px;
-    border-color: rgba(34,211,238,0.3);
+    gap: 6px;
   }
   .roster--4 .seat-chip {
-    border-radius: 8px;
-    border-color: rgba(232,121,249,0.3);
+    /* как ×3: колонка — одинаковый hover/marquee */
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 4px;
+    border-radius: 12px;
+    border: 1px solid rgba(232,121,249,0.28);
+    background: rgba(6,4,22,0.35);
   }
   .seat-chip.is-filled {
-    border-color: rgba(94,232,154,0.55);
-    background: linear-gradient(135deg, rgba(94,232,154,0.2), rgba(6,4,22,0.5));
-    box-shadow: 0 0 10px rgba(94,232,154,0.18);
+    /* filled state on face ring */
+  }
+  .roster--4 .seat-chip.is-filled {
+    border-color: rgba(232,121,249,0.45);
+    background: linear-gradient(145deg, rgba(232,121,249,0.16), rgba(6,4,22,0.45));
+    box-shadow: 0 0 10px rgba(232,121,249,0.16);
   }
   .seat-chip.is-empty {
-    border-style: dashed; opacity: 0.85;
+    opacity: 0.78;
+  }
+  .roster--4 .seat-chip.is-empty {
+    border-style: dashed;
+  }
+  .seat-chip__face {
+    position: relative;
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+  }
+  .roster--4 .seat-chip__face {
+    width: 34px;
+    height: 34px;
   }
   .seat-chip__av, .seat-chip__ph {
-    width: 26px; height: 26px; border-radius: 50%; object-fit: cover; flex-shrink: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    box-sizing: border-box;
   }
-  .roster--3 .seat-chip__av, .roster--3 .seat-chip__ph { width: 28px; height: 28px; }
+  .seat-chip__av {
+    border: 2px solid rgba(103,232,249,0.55);
+    box-shadow: 0 0 10px rgba(34,211,238,0.28);
+    background: #0a0618;
+  }
+  .roster--4 .seat-chip__av {
+    border-radius: 9px;
+    border-color: rgba(232,121,249,0.55);
+    box-shadow: 0 0 10px rgba(232,121,249,0.28);
+  }
   .seat-chip__ph {
-    display: grid; place-items: center;
-    font: 800 0.62rem/1 var(--font-d); color: #041018;
-  }
-  .roster--3 .seat-chip__ph {
+    display: grid;
+    place-items: center;
+    font: 800 0.85rem/1 var(--font-d);
+    color: #041018;
     background: linear-gradient(135deg, #67e8f9, #22d3ee);
-    box-shadow: 0 0 8px rgba(34,211,238,0.35);
+    box-shadow: 0 0 10px rgba(34,211,238,0.4);
+    border: 2px solid rgba(165,243,252,0.65);
   }
   .roster--4 .seat-chip__ph {
-    border-radius: 7px;
+    border-radius: 9px;
+    font-size: 0.75rem;
     background: linear-gradient(135deg, #e879f9, #a78bfa);
-    box-shadow: 0 0 8px rgba(232,121,249,0.35);
+    box-shadow: 0 0 10px rgba(232,121,249,0.4);
+    border-color: rgba(245,208,254,0.55);
   }
   .seat-chip.is-empty .seat-chip__ph {
-    background: rgba(167,139,250,0.12) !important; color: rgba(196,181,253,0.45);
-    border: 1px dashed rgba(167,139,250,0.4); box-shadow: none !important;
-  }
-  .seat-chip__meta { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-  .roster--3 .seat-chip__meta { align-items: center; width: 100%; }
-  .seat-chip__n {
-    font: 800 0.48rem/1 var(--font-d); letter-spacing: 0.08em; text-transform: uppercase;
+    background: rgba(167,139,250,0.12) !important;
     color: rgba(196,181,253,0.45);
+    border: 1.5px dashed rgba(167,139,250,0.45) !important;
+    box-shadow: none !important;
   }
-  .roster--3 .seat-chip.is-filled .seat-chip__n { color: rgba(34,211,238,0.8); }
-  .roster--4 .seat-chip.is-filled .seat-chip__n { color: rgba(232,121,249,0.85); }
+  .seat-chip__badge {
+    position: absolute;
+    right: -3px;
+    bottom: -3px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 3px;
+    border-radius: 999px;
+    display: grid;
+    place-items: center;
+    font: 800 0.55rem/1 var(--font-d);
+    color: #041018;
+    background: linear-gradient(135deg, #fcd34d, #fbbf24);
+    border: 1.5px solid rgba(10, 6, 28, 0.95);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+  }
+  .roster--3 .seat-chip.is-filled .seat-chip__badge {
+    background: linear-gradient(135deg, #67e8f9, #22d3ee);
+  }
+  .roster--4 .seat-chip.is-filled .seat-chip__badge {
+    background: linear-gradient(135deg, #e879f9, #c084fc);
+    color: #1a0a24;
+  }
+  .seat-chip.is-empty .seat-chip__badge {
+    background: rgba(167,139,250,0.35);
+    color: rgba(226,232,240,0.7);
+  }
   .seat-chip__name {
-    font: 700 0.68rem/1.1 var(--font-u); color: var(--ink-strong);
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    position: relative;
+    display: block;
+    width: 100%;
     max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 0 2px;
+    font: 750 0.68rem/1.15 var(--font-u);
+    color: #5eead4;
+    text-shadow: 0 0 8px rgba(45, 212, 191, 0.4);
+    overflow: hidden;
+    white-space: nowrap;
+    text-align: center;
   }
-  .roster--3 .seat-chip__name { font-size: 0.62rem; max-width: 100%; }
-  .seat-chip.is-empty .seat-chip__name { color: rgba(196,181,253,0.4); font-weight: 600; }
+  .seat-chip__name-track {
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: bottom;
+    will-change: transform;
+  }
+  .roster--3 .seat-chip:nth-child(1) .seat-chip__name { color: #67e8f9; text-shadow: 0 0 8px rgba(34,211,238,0.5); }
+  .roster--3 .seat-chip:nth-child(2) .seat-chip__name { color: #e879f9; text-shadow: 0 0 8px rgba(232,121,249,0.45); }
+  .roster--3 .seat-chip:nth-child(3) .seat-chip__name { color: #fbbf24; text-shadow: 0 0 8px rgba(251,191,36,0.45); }
+  .roster--3 .seat-chip__name { font-size: 0.62rem; }
+  .roster--4 .seat-chip__name {
+    width: 100%;
+    text-align: center;
+    font-size: 0.6rem;
+    color: #e879f9;
+    text-shadow: 0 0 8px rgba(232,121,249,0.4);
+  }
+  .roster--4 .seat-chip:nth-child(1) .seat-chip__name,
+  .roster--4 .seat-chip:nth-child(2) .seat-chip__name { color: #e879f9; text-shadow: 0 0 8px rgba(232,121,249,0.45); }
+  .roster--4 .seat-chip:nth-child(3) .seat-chip__name,
+  .roster--4 .seat-chip:nth-child(4) .seat-chip__name { color: #f0abfc; text-shadow: 0 0 8px rgba(240,171,252,0.45); }
+  .seat-chip.is-empty .seat-chip__name {
+    color: #7c6bb5;
+    text-shadow: none;
+    font-weight: 600;
+  }
+  /* Hover: капсула-увеличитель + плавная прокрутка полного имени (не title-тултип) */
+  .roster { overflow: visible; }
+  .roster--3, .roster--4 { overflow: visible; }
+  .seat-chip.is-filled { position: relative; }
+  .seat-chip.is-filled:hover {
+    z-index: 8;
+    overflow: visible;
+  }
+  .seat-chip.is-filled:hover .seat-chip__name {
+    z-index: 9;
+    width: max-content;
+    max-width: min(220px, 58vw);
+    padding: 5px 10px;
+    border-radius: 999px;
+    background:
+      linear-gradient(145deg, rgba(8, 24, 48, 0.98), rgba(20, 10, 40, 0.98));
+    border: 1px solid rgba(103, 232, 249, 0.55);
+    box-shadow:
+      0 0 0 1px rgba(167, 139, 250, 0.2) inset,
+      0 0 22px rgba(34, 211, 238, 0.4),
+      0 10px 24px rgba(0, 0, 0, 0.45);
+    font-size: 0.74rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    transform: translateY(-1px) scale(1.08);
+    transition:
+      transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 0.22s ease,
+      font-size 0.22s ease;
+  }
+  .roster--3 .seat-chip.is-filled:hover .seat-chip__name,
+  .roster--4 .seat-chip.is-filled:hover .seat-chip__name {
+    position: absolute;
+    left: 50%;
+    bottom: 2px;
+    transform: translateX(-50%) translateY(-2px) scale(1.1);
+  }
+  .roster--4 .seat-chip.is-filled:hover .seat-chip__name {
+    border-color: rgba(232, 121, 249, 0.6);
+    box-shadow:
+      0 0 0 1px rgba(232, 121, 249, 0.2) inset,
+      0 0 22px rgba(232, 121, 249, 0.4),
+      0 10px 24px rgba(0, 0, 0, 0.45);
+  }
+  .seat-chip.is-filled:hover .seat-chip__name-track {
+    max-width: none;
+    overflow: visible;
+    text-overflow: clip;
+  }
+  .seat-chip.is-filled.is-marquee:hover .seat-chip__name-track {
+    animation: seat-name-marquee var(--marquee-dur, 2.8s) ease-in-out infinite alternate;
+  }
+  @keyframes seat-name-marquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(var(--marquee-dist, -40px)); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .seat-chip.is-filled.is-marquee:hover .seat-chip__name-track { animation: none; }
+  }
 
   .table-card__actions {
-    display: grid; grid-template-columns: repeat(4, 1fr);
-    gap: 4px; align-items: start; justify-items: center;
-    padding: 8px 8px 10px;
+    display: grid !important; /* override .orb-row { display:flex } */
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+    align-items: start;
+    justify-items: center;
+    padding: 8px 10px 12px;
     border-top: 0;
+    width: 100%;
+    box-sizing: border-box;
   }
   .table-card[data-cap="3"] .table-card__actions {
     background: linear-gradient(180deg, transparent, rgba(34,211,238,0.06));
@@ -1345,6 +1537,61 @@
   }
   .flash.on { opacity: 1; }
 
+  /* Баннер аккаунта у DECK → Создать */
+  .acct-banner {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px;
+    margin: 0 0 10px; padding: 12px 14px; border-radius: 14px;
+    box-sizing: border-box;
+    animation: acct-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .acct-banner--in {
+    border: 1.5px solid rgba(94, 232, 154, 0.65);
+    background:
+      linear-gradient(145deg, rgba(34, 197, 94, 0.28), transparent 55%),
+      rgba(6, 40, 28, 0.88);
+    box-shadow: 0 0 0 1px rgba(94, 232, 154, 0.18) inset, 0 0 22px rgba(34, 197, 94, 0.18);
+  }
+  .acct-banner--out {
+    border: 1.5px solid rgba(251, 191, 36, 0.7);
+    background:
+      linear-gradient(145deg, rgba(251, 191, 36, 0.22), rgba(232, 121, 249, 0.14)),
+      rgba(40, 20, 8, 0.9);
+    box-shadow: 0 0 0 1px rgba(253, 230, 138, 0.16) inset, 0 0 24px rgba(251, 191, 36, 0.2);
+  }
+  .acct-banner--wait {
+    border: 1.5px solid rgba(103, 232, 249, 0.45);
+    background: rgba(8, 20, 36, 0.88);
+  }
+  .acct-banner__text { flex: 1; min-width: 180px; }
+  .acct-banner__title {
+    margin: 0; font: 800 0.9rem/1.25 var(--font-d); letter-spacing: 0.02em;
+  }
+  .acct-banner--in .acct-banner__title { color: #86efac; text-shadow: 0 0 10px rgba(34,197,94,0.4); }
+  .acct-banner--out .acct-banner__title { color: #fde68a; text-shadow: 0 0 10px rgba(251,191,36,0.35); }
+  .acct-banner--wait .acct-banner__title { color: #67e8f9; }
+  .acct-banner__hint {
+    margin: 4px 0 0; font-size: 0.76rem; font-weight: 650; line-height: 1.35;
+  }
+  .acct-banner--in .acct-banner__hint { color: #a7f3d0; }
+  .acct-banner--out .acct-banner__hint { color: #f0abfc; }
+  .acct-banner--wait .acct-banner__hint { color: rgba(165, 243, 252, 0.85); }
+  .acct-banner__cta {
+    appearance: none; cursor: pointer; flex-shrink: 0;
+    padding: 8px 14px; border-radius: 999px;
+    border: 1px solid rgba(103, 232, 249, 0.65);
+    background: linear-gradient(115deg, rgba(34, 211, 238, 0.35), rgba(167, 139, 250, 0.4));
+    font: 800 0.72rem/1 var(--font-d); letter-spacing: 0.06em; text-transform: uppercase;
+    color: #ecfeff; box-shadow: 0 0 14px rgba(103, 232, 249, 0.3);
+  }
+  .acct-banner__cta:hover { filter: brightness(1.08); }
+  @keyframes acct-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .acct-banner { animation: none; }
+  }
+
   .sheet-backdrop {
     position: fixed; inset: 0; background: rgba(0,0,0,0.62); z-index: 40;
     opacity: 0; pointer-events: none; transition: opacity 0.22s;
@@ -1415,7 +1662,7 @@
         <h1>Up&amp;Down</h1>
         <p class="tag">мост · Wi‑Fi хост</p>
       </div>
-      <div class="panel-rev-badge" id="panelRevBadge" title="Версия UI панели">rev 11</div>
+      <div class="panel-rev-badge" id="panelRevBadge" title="Версия UI панели">rev 18</div>
       <div class="pills" id="statusLine"><span class="pill warn"><i class="dot"></i>…</span></div>
     </div>
 
@@ -1702,11 +1949,21 @@
             <span class="host-tip__pop" role="dialog">
               <span class="host-tip__pop-arrow" aria-hidden="true"></span>
               <span class="host-tip__title">Стол + QR</span>
-              <span class="host-tip__body">Создаёт комнату с QR. Гости сканируют камерой. На этом ПК второй браузер — только ссылка :3001/play/, не Vite :5173.</span>
+              <span class="host-tip__body">Создаёт комнату с QR. Аккаунт не обязателен — баннер ниже покажет, вошли ли вы на :3001/play/. Гости по QR без аккаунта ок.</span>
             </span>
           </span>
         </div>
       </div>
+      <div class="acct-banner acct-banner--wait" id="acctBanner" role="status">
+        <div class="acct-banner__text">
+          <p class="acct-banner__title" id="acctBannerTitle">Проверяем аккаунт…</p>
+          <p class="acct-banner__hint" id="acctBannerHint" hidden></p>
+        </div>
+        <button type="button" class="acct-banner__cta" id="btnAcctSignIn" hidden>Войти в игре</button>
+      </div>
+      <iframe id="authBridge" title="auth" hidden
+        style="position:absolute;width:0;height:0;border:0;opacity:0;pointer-events:none"
+        sandbox="allow-scripts allow-same-origin"></iframe>
     </section>
 
     <div class="hero-empty" id="heroEmpty">
@@ -1745,6 +2002,8 @@
 <script>
 (() => {
   const LAN = '/lan';
+  /** Игровой сервер (совпадает с PORT панели / host-control-panel). */
+  const GAME_PORT = 3001;
   const STORE_KEY = 'updown_host_rooms_v2';
   const CLUB_KEY = 'updown_host_club_mode';
   const CIRC = 2 * Math.PI * 14; // r=14
@@ -1828,7 +2087,13 @@
     }
     return data;
   }
-  const NEED_PANEL_REV = 11;
+  const NEED_PANEL_REV = 18;
+  const ACCOUNT_UUID_RE =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  /** Статус аккаунта для баннера (create на панели НЕ блокирует). */
+  /** @type {{ ready: boolean, signedIn: boolean, userId: string|null, label: string|null }} */
+  let accountAuth = { ready: false, signedIn: false, userId: null, label: null };
+
   function setGauge(el, nEl, value, max) {
     const v = Math.max(0, Math.min(1, max ? value / max : value));
     el.style.strokeDashoffset = String(CIRC * (1 - v));
@@ -1841,6 +2106,70 @@
       server_full: 'Сервер заполнен',
     };
     return map[code] || code;
+  }
+  function playLoginUrl() {
+    return 'http://127.0.0.1:' + GAME_PORT + '/play/';
+  }
+  function openPlayLogin() {
+    const url = playLoginUrl();
+    try { window.open(url, '_blank', 'noopener,noreferrer'); }
+    catch { window.location.href = url; }
+    flash('Открыли :3001/play/ — войдите, если хотите привязать аккаунт');
+  }
+  function renderAcctBanner() {
+    const banner = document.getElementById('acctBanner');
+    const title = document.getElementById('acctBannerTitle');
+    const hint = document.getElementById('acctBannerHint');
+    const cta = document.getElementById('btnAcctSignIn');
+    if (!banner || !title || !hint || !cta) return;
+    banner.classList.remove('acct-banner--in', 'acct-banner--out', 'acct-banner--wait');
+    hint.hidden = true;
+    hint.textContent = '';
+    if (!serverUp) {
+      banner.classList.add('acct-banner--wait');
+      title.textContent = 'Сначала Старт сервера';
+      cta.hidden = true;
+      return;
+    }
+    if (!accountAuth.ready) {
+      banner.classList.add('acct-banner--wait');
+      title.textContent = 'Проверяем аккаунт…';
+      cta.hidden = false;
+      cta.textContent = 'Открыть игру';
+      return;
+    }
+    if (accountAuth.signedIn && accountAuth.userId) {
+      banner.classList.add('acct-banner--in');
+      title.textContent = 'Вы в аккаунте · ' + (accountAuth.label || accountAuth.userId.slice(0, 8));
+      cta.hidden = true;
+      return;
+    }
+    banner.classList.add('acct-banner--out');
+    title.textContent = 'Вы не в аккаунте';
+    cta.hidden = false;
+    cta.textContent = 'Войти в игре';
+  }
+  function ensureAuthBridge() {
+    const frame = document.getElementById('authBridge');
+    if (!frame || !serverUp) return;
+    const origin = 'http://127.0.0.1:' + GAME_PORT;
+    const want = origin + '/play/host-auth-bridge.html';
+    if (frame.getAttribute('src') !== want) frame.setAttribute('src', want);
+    try {
+      frame.contentWindow?.postMessage({ source: 'updown-host-panel', type: 'ping' }, origin);
+    } catch { /* */ }
+  }
+  function applyAccountAuth(msg) {
+    if (!msg || msg.source !== 'updown-host-auth-bridge') return;
+    const userId = typeof msg.userId === 'string' && ACCOUNT_UUID_RE.test(msg.userId) ? msg.userId : null;
+    const signedIn = !!msg.signedIn && !!userId;
+    accountAuth = {
+      ready: true,
+      signedIn,
+      userId: signedIn ? userId : null,
+      label: typeof msg.label === 'string' && msg.label ? msg.label : null,
+    };
+    renderAcctBanner();
   }
   function setLed(id, mode) {
     const el = document.getElementById(id);
@@ -1903,41 +2232,74 @@
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
   }
-  function avatarHtml(s, empty) {
-    if (empty) return '<span class="seat-chip__ph">·</span>';
+  function avatarFaceHtml(s, empty, seatNo) {
+    const badge = '<span class="seat-chip__badge">' + seatNo + '</span>';
+    if (empty) {
+      return '<span class="seat-chip__face"><span class="seat-chip__ph">·</span>' + badge + '</span>';
+    }
     const initial = escapeHtml((s.displayName || '?').trim().charAt(0).toUpperCase() || '?');
-    if (s.avatarDataUrl) return '<img class="seat-chip__av" src="' + escapeHtml(s.avatarDataUrl) + '" alt=""/>';
-    return '<span class="seat-chip__ph">' + initial + '</span>';
+    const face = s.avatarDataUrl
+      ? '<img class="seat-chip__av" src="' + escapeHtml(s.avatarDataUrl) + '" alt="" loading="lazy"/>'
+      : '<span class="seat-chip__ph">' + initial + '</span>';
+    return '<span class="seat-chip__face">' + face + badge + '</span>';
   }
-  /** ×3 — ряд из 3; ×4 — сетка 2×2. */
+  /** ×3 — ряд из 3; ×4 — сетка 2×2. Номер слота — бейдж на аватаре, имя одной строкой. */
   function rosterHtml(room) {
     const cap = roomCap(room);
     let html = '<div class="roster roster--' + cap + '" role="list" aria-label="' + (cap === 3 ? 'Тройка' : 'Квартет') + '">';
     for (let i = 0; i < cap; i++) {
       const s = slotByIndex(room, i);
+      const seatNo = i + 1;
       if (s) {
         const name = escapeHtml(s.displayName || s.shortLabel || 'Игрок');
         html +=
-          '<div class="seat-chip is-filled" role="listitem" title="' + name + '">' +
-            avatarHtml(s, false) +
-            '<span class="seat-chip__meta">' +
-              '<span class="seat-chip__n">' + (i + 1) + '</span>' +
-              '<span class="seat-chip__name">' + name + '</span>' +
-            '</span>' +
+          '<div class="seat-chip is-filled" role="listitem">' +
+            avatarFaceHtml(s, false, seatNo) +
+            '<span class="seat-chip__name"><span class="seat-chip__name-track">' + name + '</span></span>' +
           '</div>';
       } else {
         html +=
           '<div class="seat-chip is-empty" role="listitem">' +
-            avatarHtml(null, true) +
-            '<span class="seat-chip__meta">' +
-              '<span class="seat-chip__n">' + (i + 1) + '</span>' +
-              '<span class="seat-chip__name">—</span>' +
-            '</span>' +
+            avatarFaceHtml(null, true, seatNo) +
+            '<span class="seat-chip__name"><span class="seat-chip__name-track">—</span></span>' +
           '</div>';
       }
     }
     html += '</div>';
     return html;
+  }
+  /** Hover: если имя не влезает в увеличенную капсулу — плавный marquee (без title). */
+  function bindSeatNameMarquee(root) {
+    if (!root) return;
+    root.querySelectorAll('.seat-chip.is-filled').forEach((chip) => {
+      const nameEl = chip.querySelector('.seat-chip__name');
+      const track = chip.querySelector('.seat-chip__name-track');
+      if (!nameEl || !track) return;
+      const measureHover = () => {
+        window.requestAnimationFrame(() => {
+          const overflow = track.scrollWidth - nameEl.clientWidth;
+          if (overflow > 4) {
+            chip.classList.add('is-marquee');
+            track.style.setProperty('--marquee-dist', '-' + overflow + 'px');
+            track.style.setProperty(
+              '--marquee-dur',
+              Math.min(5.5, Math.max(1.8, overflow / 36)).toFixed(2) + 's',
+            );
+          } else {
+            chip.classList.remove('is-marquee');
+            track.style.removeProperty('--marquee-dist');
+            track.style.removeProperty('--marquee-dur');
+          }
+        });
+      };
+      chip.addEventListener('mouseenter', measureHover);
+      chip.addEventListener('focusin', measureHover);
+      chip.addEventListener('mouseleave', () => {
+        chip.classList.remove('is-marquee');
+        track.style.removeProperty('--marquee-dist');
+        track.style.removeProperty('--marquee-dur');
+      });
+    });
   }
   function renderLiveBar() {
     const el = document.getElementById('livePlayers');
@@ -2211,6 +2573,7 @@
       );
     }).join('');
     renderLiveBar();
+    bindSeatNameMarquee(roomsGrid);
 
     roomsGrid.querySelectorAll('.table-card').forEach((card) => {
       const id = card.getAttribute('data-id');
@@ -2267,6 +2630,7 @@
     setLed('ledBuild', building ? 'on-gold' : (distOk || builtOnce ? 'on-green' : ''));
     setLed('ledSrv', serverUp ? 'on-green' : (ctlBusy ? 'on-gold' : 'on-rose'));
     setLed('ledNet', serverUp && network?.lanIps?.length ? 'on-cyan' : (serverUp ? 'on-gold' : ''));
+    renderAcctBanner();
     renderRooms();
   }
 
@@ -2505,6 +2869,10 @@
         ? urls.map((u) => '<a class="guest-chip" href="' + u + '" target="_blank" rel="noopener">' + u + '</a>').join('')
         : '<span class="guest-empty">Wi‑Fi ссылка после старта</span>';
       await refreshNetwork();
+      if (serverUp) ensureAuthBridge();
+      else {
+        accountAuth = { ready: false, signedIn: false, userId: null, label: null };
+      }
       syncControls();
       if (serverUp && !ws) { try { await connect(); } catch { /* */ } }
       if (serverUp && (!wasUp || true)) await syncDedicatedFromServer();
@@ -2777,6 +3145,16 @@
     }
   };
   if (partyScenario) setPartyScenario(partyScenario);
+
+  document.getElementById('btnAcctSignIn').onclick = () => openPlayLogin();
+  window.addEventListener('message', (ev) => {
+    if (!ev || !ev.data) return;
+    const origin = String(ev.origin || '');
+    if (origin && origin !== ('http://127.0.0.1:' + GAME_PORT) && origin !== ('http://localhost:' + GAME_PORT)) {
+      return;
+    }
+    applyAccountAuth(ev.data);
+  });
 
   document.getElementById('btnCopyOauthRedirect').onclick = () => {
     const t = document.getElementById('oauthRedirectLine')?.textContent?.trim();

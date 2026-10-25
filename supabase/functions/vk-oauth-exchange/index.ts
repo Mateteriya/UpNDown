@@ -77,49 +77,77 @@ Deno.serve(async (req) => {
   }
   const accessToken = tokenJson.access_token;
 
-  const uiBody = new URLSearchParams();
-  uiBody.set('access_token', accessToken);
-  uiBody.set('client_id', clientId);
-  const uiRes = await fetch('https://id.vk.ru/oauth2/user_info', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      Accept: 'application/json',
-      Authorization: `Bearer ${accessToken}`,
-    },
-    body: uiBody,
-  });
-  const uiText = await uiRes.text();
-  let uiJson: Record<string, unknown>;
-  try {
-    uiJson = JSON.parse(uiText) as Record<string, unknown>;
-  } catch {
-    return json(502, { error: 'vk_userinfo_not_json', body: uiText.slice(0, 300) });
+  function emailFromIdToken(idToken: unknown): string {
+    if (typeof idToken !== 'string' || !idToken.includes('.')) return '';
+    try {
+      const payload = idToken.split('.')[1] || '';
+      const pad = payload.length % 4 === 0 ? '' : '='.repeat(4 - (payload.length % 4));
+      const b64 = payload.replace(/-/g, '+').replace(/_/g, '/') + pad;
+      const claims = JSON.parse(atob(b64)) as Record<string, unknown>;
+      if (typeof claims.email === 'string') return claims.email;
+      if (typeof claims.email_address === 'string') return claims.email_address;
+      return '';
+    } catch {
+      return '';
+    }
   }
-  if (!uiRes.ok) return json(502, { error: 'vk_userinfo_failed', vk: uiJson });
+
+  async function fetchVkUser(path: string): Promise<Record<string, unknown> | null> {
+    const uiBody = new URLSearchParams();
+    uiBody.set('access_token', accessToken);
+    uiBody.set('client_id', clientId);
+    const uiRes = await fetch(`https://id.vk.ru/oauth2/${path}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Accept: 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: uiBody,
+    });
+    const uiText = await uiRes.text();
+    try {
+      const parsed = JSON.parse(uiText) as Record<string, unknown>;
+      return uiRes.ok ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+
+  const uiJson = (await fetchVkUser('user_info')) || {};
+  const publicJson = (await fetchVkUser('public_info')) || {};
 
   const userObj =
     uiJson.user && typeof uiJson.user === 'object'
       ? (uiJson.user as Record<string, unknown>)
-      : uiJson;
+      : publicJson.user && typeof publicJson.user === 'object'
+        ? (publicJson.user as Record<string, unknown>)
+        : uiJson;
   const vkId =
     userObj.user_id != null
       ? String(userObj.user_id)
       : userObj.id != null
         ? String(userObj.id)
-        : '';
+        : tokenJson.user_id != null
+          ? String(tokenJson.user_id)
+          : '';
+
   const emailRaw =
     (typeof userObj.email === 'string' && userObj.email) ||
     (typeof uiJson.email === 'string' && uiJson.email) ||
+    (typeof publicJson.email === 'string' && publicJson.email) ||
+    emailFromIdToken(tokenJson.id_token) ||
     '';
-  const email = emailRaw.trim().toLowerCase();
+  /** Без почты от VK всё равно пускаем — иначе Mail.ru/телефон без email блокируют вход. */
+  const email = emailRaw.trim().toLowerCase() || (vkId ? `vkid_${vkId}@users.vkid.up2down.local` : '');
   if (!email) {
     return json(400, {
-      error: 'vk_email_required',
-      hint: 'В кабинете VK включите право email и разрешите доступ при входе.',
-      vk_id: vkId || null,
+      error: 'vk_identity_missing',
+      hint: 'VK не вернул user_id и email. На экране согласия отметьте доступ к почте, если есть.',
+      user_keys: Object.keys(userObj),
     });
   }
+  const emailIsSynthetic = /@users\.vkid\.up2down\.local$/i.test(email);
 
   const first = typeof userObj.first_name === 'string' ? userObj.first_name : '';
   const last = typeof userObj.last_name === 'string' ? userObj.last_name : '';
@@ -145,6 +173,7 @@ Deno.serve(async (req) => {
     avatar_url: avatar,
     picture: avatar,
     vkid: vkId || undefined,
+    vkid_email_synthetic: emailIsSynthetic || undefined,
   };
 
   const created = await admin.auth.admin.createUser({

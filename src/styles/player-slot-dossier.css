@@ -1,0 +1,2060 @@
+/**
+ * Досье слота (модалка оппонента / знак аккаунта на Юге).
+ * Подключать из main.tsx после index.css.
+ */
+
+.player-acct-mark {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  font-family: 'Exo 2', 'Outfit', ui-sans-serif, system-ui, sans-serif;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+}
+
+.player-acct-mark__dot {
+  width: 0.55em;
+  height: 0.55em;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.player-acct-mark--in {
+  border: 1.5px solid rgba(94, 232, 154, 0.7);
+  background:
+    linear-gradient(145deg, rgba(34, 197, 94, 0.28), transparent 55%),
+    rgba(6, 40, 28, 0.88);
+  color: #86efac;
+  box-shadow: 0 0 14px rgba(34, 197, 94, 0.22);
+}
+
+.player-acct-mark--in .player-acct-mark__dot {
+  background: #4ade80;
+  box-shadow: 0 0 8px rgba(74, 222, 128, 0.8);
+}
+
+.player-acct-mark--out {
+  border: 1.5px solid rgba(251, 191, 36, 0.75);
+  background:
+    linear-gradient(145deg, rgba(251, 191, 36, 0.22), rgba(232, 121, 249, 0.16)),
+    rgba(40, 20, 8, 0.9);
+  color: #fde68a;
+  box-shadow: 0 0 14px rgba(251, 191, 36, 0.22);
+}
+
+.player-acct-mark--out .player-acct-mark__dot {
+  background: #fbbf24;
+  box-shadow: 0 0 8px rgba(251, 191, 36, 0.75);
+}
+
+.player-acct-mark--sheet {
+  width: 100%;
+  justify-content: center;
+  padding: 8px 12px;
+  font-size: 0.82rem;
+}
+
+.player-acct-mark--header {
+  justify-content: center;
+  gap: 8px 12px;
+  max-width: min(92vw, 420px);
+  padding: 9px 16px;
+  font-family: 'Orbitron', 'Exo 2', ui-sans-serif, system-ui, sans-serif;
+  font-size: clamp(0.72rem, 2.8vw, 0.88rem);
+  font-weight: 850;
+  letter-spacing: 0.05em;
+}
+
+.player-acct-mark--header.player-acct-mark--in {
+  box-shadow:
+    0 0 0 1px rgba(94, 232, 154, 0.25) inset,
+    0 10px 28px rgba(2, 6, 23, 0.45),
+    0 0 28px rgba(34, 197, 94, 0.35);
+}
+
+.player-acct-mark--header.player-acct-mark--out {
+  box-shadow:
+    0 0 0 1px rgba(253, 230, 138, 0.22) inset,
+    0 10px 28px rgba(2, 6, 23, 0.45),
+    0 0 30px rgba(251, 191, 36, 0.38);
+}
+
+.player-acct-mark--interactive {
+  appearance: none;
+  margin: 0;
+  cursor: pointer;
+  text-align: inherit;
+}
+
+.player-acct-mark--interactive:hover {
+  filter: brightness(1.07);
+  transform: translateY(-1px);
+}
+
+.player-acct-mark--interactive:focus-visible {
+  outline: 2px solid rgba(103, 232, 249, 0.85);
+  outline-offset: 3px;
+}
+
+.player-acct-mark__cta {
+  appearance: none;
+  margin: 0;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(103, 232, 249, 0.65);
+  background: linear-gradient(115deg, rgba(34, 211, 238, 0.35), rgba(167, 139, 250, 0.4));
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #ecfeff;
+  cursor: pointer;
+}
+
+.player-acct-mark__cta:hover {
+  filter: brightness(1.08);
+}
+
+.player-acct-mark__cta--static {
+  pointer-events: none;
+  cursor: inherit;
+  font-size: 0.62rem;
+}
+
+/*
+ * Аккаунт за столом — в левой колонке шапки (chrome), не поверх сукна.
+ * Плашка → свернуть → chip → через 12с mini + breathe.
+ */
+/* Якорь 0×0 в потоке — индикатор/плашка НИКОГДА не двигают шапку и страницу */
+.game-acct-dock {
+  --ga-ice: #f0f9ff;
+  --ga-cyan: #67e8f9;
+  --ga-vio: #c4b5fd;
+  --ga-in-a: #34d399;
+  --ga-in-b: #22d3ee;
+  --ga-out-a: #fbbf24;
+  --ga-out-b: #f472b6;
+  position: relative;
+  z-index: 40;
+  width: 0;
+  height: 0;
+  margin: 0;
+  padding: 0;
+  flex: 0 0 0;
+  align-self: flex-start;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.game-acct-dock--mini {
+  width: 0;
+  height: 0;
+}
+
+/* Голографические арт-слои (плашка + поповер) */
+.game-acct-art__prism {
+  position: absolute;
+  inset: -8%;
+  pointer-events: none;
+  opacity: 0.85;
+  background:
+    conic-gradient(
+      from 200deg at 32% 18%,
+      rgba(192, 132, 252, 0.45),
+      rgba(34, 211, 238, 0.28),
+      rgba(244, 114, 182, 0.36),
+      rgba(52, 211, 153, 0.28),
+      rgba(167, 139, 250, 0.42)
+    );
+  mix-blend-mode: screen;
+  filter: saturate(1.25);
+  animation: game-acct-prism 10s ease-in-out infinite;
+}
+
+.game-acct-art__mesh {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.42;
+  background-image:
+    linear-gradient(rgba(196, 181, 253, 0.28) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(103, 232, 249, 0.22) 1px, transparent 1px);
+  background-size: 11px 11px;
+  mask-image: radial-gradient(ellipse 95% 85% at 50% 35%, #000 15%, transparent 78%);
+}
+
+.game-acct-art__scan {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.55;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(192, 132, 252, 0.22) 46%,
+    rgba(103, 232, 249, 0.45) 50%,
+    rgba(244, 114, 182, 0.22) 54%,
+    transparent 100%
+  );
+  background-size: 100% 240%;
+  animation: game-acct-scan 3.6s ease-in-out infinite;
+}
+
+.game-acct-art__rim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: linear-gradient(
+    125deg,
+    #c084fc,
+    #22d3ee 24%,
+    #f472b6 48%,
+    #a78bfa 72%,
+    #34d399 92%,
+    #c084fc
+  );
+  background-size: 220% 220%;
+  animation: game-acct-rim-flow 5.5s linear infinite;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 1;
+  filter: drop-shadow(0 0 6px rgba(167, 139, 250, 0.45));
+}
+
+.game-acct-art__corners {
+  position: absolute;
+  inset: 6px;
+  pointer-events: none;
+}
+
+.game-acct-art__corners span {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-style: solid;
+  border-color: #c084fc;
+  filter: drop-shadow(0 0 5px rgba(192, 132, 252, 0.85));
+}
+
+.game-acct-panel--in .game-acct-art__corners span {
+  border-color: rgba(110, 231, 183, 0.7);
+  filter: drop-shadow(0 0 4px rgba(52, 211, 153, 0.5));
+}
+
+.game-acct-panel--out .game-acct-art__corners span {
+  border-color: rgba(251, 191, 36, 0.75);
+  filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.45));
+}
+
+.game-acct-art__corners span:nth-child(1) {
+  top: 0;
+  left: 0;
+  border-width: 1.5px 0 0 1.5px;
+}
+.game-acct-art__corners span:nth-child(2) {
+  top: 0;
+  right: 0;
+  border-width: 1.5px 1.5px 0 0;
+}
+.game-acct-art__corners span:nth-child(3) {
+  bottom: 0;
+  left: 0;
+  border-width: 0 0 1.5px 1.5px;
+}
+.game-acct-art__corners span:nth-child(4) {
+  bottom: 0;
+  right: 0;
+  border-width: 0 1.5px 1.5px 0;
+}
+
+/* Единая панель (первичная плашка = поповер с индикатора) */
+.game-acct-panel {
+  --ga-ice: #f0f9ff;
+  --ga-cyan: #67e8f9;
+  --ga-vio: #c4b5fd;
+  --ga-in-a: #34d399;
+  --ga-in-b: #22d3ee;
+  --ga-out-a: #fbbf24;
+  --ga-out-b: #f472b6;
+  position: fixed;
+  /* Ниже .lk-modal (12040): не перекрывать вход / приветствие после OAuth */
+  z-index: 11040;
+  width: min(220px, calc(100vw - 20px));
+  overflow: hidden;
+  isolation: isolate;
+  padding: 16px 18px 14px;
+  border-radius: 16px;
+  border: 1px solid transparent;
+  background:
+    radial-gradient(ellipse 90% 60% at 12% -10%, rgba(167, 139, 250, 0.28), transparent 55%),
+    radial-gradient(ellipse 70% 50% at 100% 0%, rgba(34, 211, 238, 0.16), transparent 50%),
+    linear-gradient(160deg, rgba(10, 16, 40, 0.97) 0%, rgba(6, 8, 22, 0.98) 100%);
+  box-shadow:
+    0 0 0 1px rgba(167, 139, 250, 0.12) inset,
+    0 18px 40px rgba(0, 0, 0, 0.55),
+    0 0 36px rgba(124, 58, 237, 0.22),
+    0 0 18px rgba(34, 211, 238, 0.1);
+  animation: game-acct-plaque-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+  pointer-events: auto;
+  transform-origin: top left;
+}
+
+.game-acct-panel--folding {
+  animation: game-acct-plaque-fold 0.42s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  pointer-events: none;
+}
+
+.game-acct-panel--in {
+  background:
+    radial-gradient(ellipse 85% 55% at 8% -12%, rgba(52, 211, 153, 0.2), transparent 52%),
+    radial-gradient(ellipse 65% 45% at 100% 0%, rgba(109, 40, 217, 0.22), transparent 48%),
+    linear-gradient(162deg, #031014 0%, #050a14 42%, #020308 100%);
+  box-shadow:
+    0 0 0 1px rgba(52, 211, 153, 0.22) inset,
+    0 0 0 1px rgba(0, 0, 0, 0.55),
+    0 20px 44px rgba(0, 0, 0, 0.72),
+    0 0 28px rgba(16, 185, 129, 0.16),
+    0 0 18px rgba(76, 29, 149, 0.18);
+}
+
+.game-acct-panel--in .game-acct-art__mesh {
+  opacity: 0.34;
+}
+
+.game-acct-panel--in .game-acct-art__prism {
+  opacity: 0.72;
+  filter: saturate(1.2) brightness(0.88);
+}
+
+.game-acct-panel--out {
+  background:
+    radial-gradient(ellipse 90% 55% at 6% -18%, rgba(251, 191, 36, 0.38), transparent 48%),
+    radial-gradient(ellipse 70% 48% at 108% 6%, rgba(192, 132, 252, 0.3), transparent 46%),
+    radial-gradient(ellipse 55% 35% at 45% 118%, rgba(244, 114, 182, 0.16), transparent 52%),
+    linear-gradient(158deg, #12080a 0%, #0a0614 42%, #05040c 100%);
+  box-shadow:
+    0 0 0 1px rgba(251, 191, 36, 0.16) inset,
+    0 20px 46px rgba(0, 0, 0, 0.72),
+    0 0 34px rgba(245, 158, 11, 0.18),
+    0 0 20px rgba(88, 28, 135, 0.22);
+}
+
+.game-acct-panel--out .game-acct-art__prism {
+  opacity: 0.58;
+  mix-blend-mode: soft-light;
+  filter: saturate(1.15) brightness(0.92);
+}
+
+.game-acct-panel--out .game-acct-art__mesh {
+  opacity: 0.26;
+}
+
+.game-acct-panel--out .game-acct-art__scan {
+  opacity: 0.42;
+}
+
+.game-acct-panel__aurora {
+  position: absolute;
+  inset: -40% -30% auto;
+  height: 80%;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 28% 40%, rgba(167, 139, 250, 0.35), transparent 55%),
+    radial-gradient(ellipse at 82% 18%, rgba(34, 211, 238, 0.22), transparent 50%);
+  filter: blur(10px);
+  animation: game-acct-aurora 6.5s ease-in-out infinite alternate;
+}
+
+.game-acct-panel--in .game-acct-panel__aurora {
+  background:
+    radial-gradient(ellipse at 28% 35%, rgba(52, 211, 153, 0.34), transparent 55%),
+    radial-gradient(ellipse at 85% 15%, rgba(139, 92, 246, 0.26), transparent 50%);
+}
+
+.game-acct-panel--out .game-acct-panel__aurora {
+  background:
+    radial-gradient(ellipse at 18% 22%, rgba(251, 191, 36, 0.48), transparent 48%),
+    radial-gradient(ellipse at 90% 8%, rgba(168, 85, 247, 0.32), transparent 46%),
+    radial-gradient(ellipse at 50% 100%, rgba(244, 114, 182, 0.18), transparent 55%);
+  opacity: 0.85;
+  filter: blur(11px) contrast(1.15);
+}
+
+/* Крестик-глиф с двойной обводкой */
+.game-acct-x {
+  appearance: none;
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 3;
+  width: 26px;
+  height: 26px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  color: #e9d5ff;
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.18), transparent 42%),
+    linear-gradient(145deg, rgba(46, 16, 80, 0.95), rgba(12, 8, 28, 0.98));
+  box-shadow:
+    0 0 0 1px rgba(192, 132, 252, 0.65),
+    0 0 0 3px rgba(76, 29, 149, 0.45),
+    0 0 12px rgba(139, 92, 246, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.45);
+  display: grid;
+  place-items: center;
+  transition: transform 0.14s ease, filter 0.14s ease, color 0.14s ease, box-shadow 0.14s ease;
+}
+
+.game-acct-x__ring {
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  pointer-events: none;
+  border: 1px solid transparent;
+  background: linear-gradient(135deg, #c084fc, #22d3ee, #f472b6, #a78bfa) border-box;
+  -webkit-mask:
+    linear-gradient(#000 0 0) padding-box,
+    linear-gradient(#000 0 0);
+  mask:
+    linear-gradient(#000 0 0) padding-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0.85;
+}
+
+.game-acct-panel--out .game-acct-x {
+  color: #fde68a;
+  box-shadow:
+    0 0 0 1px rgba(251, 191, 36, 0.7),
+    0 0 0 3px rgba(120, 53, 15, 0.5),
+    0 0 12px rgba(245, 158, 11, 0.35),
+    inset 0 1px 0 rgba(255, 248, 220, 0.2),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.game-acct-panel--out .game-acct-x__ring {
+  background: linear-gradient(135deg, #fbbf24, #f472b6, #c084fc, #fcd34d) border-box;
+}
+
+.game-acct-panel--in .game-acct-x {
+  color: #a7f3d0;
+  box-shadow:
+    0 0 0 1px rgba(52, 211, 153, 0.65),
+    0 0 0 3px rgba(6, 78, 59, 0.45),
+    0 0 12px rgba(16, 185, 129, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.45);
+}
+
+.game-acct-panel--in .game-acct-x__ring {
+  background: linear-gradient(135deg, #34d399, #67e8f9, #a78bfa, #6ee7b7) border-box;
+}
+
+.game-acct-x__ico {
+  position: relative;
+  z-index: 1;
+  width: 14px;
+  height: 14px;
+  display: block;
+  filter: drop-shadow(0 0 3px currentColor);
+}
+
+.game-acct-x:hover {
+  filter: brightness(1.12);
+  transform: scale(1.06);
+  color: #fff;
+}
+
+.game-acct-x:active {
+  transform: scale(0.94);
+}
+
+/* Симметричное тело: всё по центру, ровные шаги */
+.game-acct-panel__body {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+  padding: 4px 4px 0;
+  margin: 0;
+}
+
+.game-acct-panel__kicker {
+  margin: 0;
+  max-width: 100%;
+  font-family: 'Orbitron', 'Exo 2', ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.46rem;
+  font-weight: 750;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #67e8f9;
+}
+
+.game-acct-panel--in .game-acct-panel__kicker {
+  color: #34d399;
+}
+
+.game-acct-panel--out .game-acct-panel__kicker {
+  color: #fbbf24;
+}
+
+.game-acct-panel__title {
+  margin: 0;
+  max-width: 100%;
+  font-family: 'Orbitron', 'Exo 2', ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.76rem;
+  font-weight: 850;
+  letter-spacing: 0.03em;
+  line-height: 1.28;
+  word-break: break-word;
+  background: linear-gradient(105deg, #c4b5fd 0%, #67e8f9 45%, #e879f9 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 10px rgba(167, 139, 250, 0.35));
+}
+
+.game-acct-panel--in .game-acct-panel__title {
+  font-size: 0.9rem;
+  font-weight: 900;
+  letter-spacing: 0.025em;
+  background: linear-gradient(105deg, #a7f3d0 0%, #5eead4 38%, #e0f2fe 72%, #c4b5fd 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter:
+    drop-shadow(0 1px 0 rgba(0, 0, 0, 0.45))
+    drop-shadow(0 0 14px rgba(52, 211, 153, 0.55))
+    drop-shadow(0 0 8px rgba(103, 232, 249, 0.35));
+}
+
+.game-acct-panel--in .game-acct-panel__cta {
+  margin-top: 8px;
+}
+
+.game-acct-panel--out .game-acct-panel__title {
+  background: linear-gradient(105deg, #fcd34d 0%, #f472b6 48%, #c084fc 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 12px rgba(251, 191, 36, 0.4));
+}
+
+.game-acct-panel__cta {
+  width: 100%;
+  margin-top: 4px;
+  display: flex;
+  justify-content: center;
+}
+
+.game-acct-panel__row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+}
+
+/* Глиф-кнопки (сменить / выйти) */
+.game-acct-act {
+  appearance: none;
+  margin: 0;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border-radius: 11px;
+  padding: 5px 8px 5px 6px;
+  cursor: pointer;
+  font-family: 'Orbitron', 'Exo 2', ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.48rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+  overflow: hidden;
+  isolation: isolate;
+  transition: transform 0.14s ease, filter 0.14s ease, box-shadow 0.14s ease;
+}
+
+.game-acct-act::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    115deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.14) 42%,
+    transparent 68%
+  );
+  transform: translateX(-120%);
+  transition: transform 0.45s ease;
+}
+
+.game-acct-act:hover:not(:disabled)::before {
+  transform: translateX(120%);
+}
+
+.game-acct-act:disabled {
+  opacity: 0.48;
+  cursor: wait;
+}
+
+.game-acct-act:hover:not(:disabled) {
+  filter: brightness(1.12) saturate(1.08);
+  transform: translateY(-1px);
+}
+
+.game-acct-act__glyph {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  display: block;
+  filter: drop-shadow(0 0 4px currentColor);
+}
+
+.game-acct-act__label {
+  position: relative;
+  z-index: 1;
+  line-height: 1;
+}
+
+.game-acct-act--xs {
+  padding: 4px 7px 4px 5px;
+  font-size: 0.44rem;
+  border-radius: 10px;
+}
+
+.game-acct-act--xs .game-acct-act__glyph {
+  width: 12px;
+  height: 12px;
+}
+
+.game-acct-act--switch {
+  color: #67e8f9;
+  border-color: rgba(103, 232, 249, 0.5);
+  background:
+    radial-gradient(circle at 18% 20%, rgba(103, 232, 249, 0.28), transparent 45%),
+    linear-gradient(135deg, rgba(12, 48, 78, 0.95), rgba(67, 28, 120, 0.82));
+  box-shadow:
+    0 0 0 1px rgba(103, 232, 249, 0.12) inset,
+    0 0 12px rgba(34, 211, 238, 0.22);
+}
+
+.game-acct-act--out {
+  color: #fb7185;
+  border-color: rgba(251, 113, 133, 0.5);
+  background:
+    radial-gradient(circle at 18% 20%, rgba(251, 113, 133, 0.26), transparent 45%),
+    linear-gradient(135deg, rgba(76, 12, 36, 0.95), rgba(76, 29, 149, 0.75));
+  box-shadow:
+    0 0 0 1px rgba(251, 113, 133, 0.12) inset,
+    0 0 12px rgba(244, 63, 94, 0.2);
+}
+
+/* 3D-капсулы «Сменить» / «Выйти» — тот же язык, что «Войти» */
+.game-acct-panel__row--caps {
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.game-acct-act-cap {
+  appearance: none;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 158px;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0;
+  /* уже по ширине, чуть выше */
+  padding: 11px 14px 11px 48px;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  font-family: 'Orbitron', 'Exo 2', ui-sans-serif, system-ui, sans-serif;
+  overflow: hidden;
+  isolation: isolate;
+  transition: transform 0.16s ease, filter 0.16s ease, box-shadow 0.16s ease;
+}
+
+.game-acct-act-cap:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+.game-acct-act-cap:hover:not(:disabled) {
+  filter: brightness(1.08) saturate(1.06);
+  transform: translateY(-2px);
+}
+
+.game-acct-act-cap:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.game-acct-act-cap__sweep {
+  position: absolute;
+  inset: -20% -40%;
+  pointer-events: none;
+  z-index: 1;
+  transform: translateX(-75%) skewX(-12deg);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.game-acct-act-cap:hover:not(:disabled) .game-acct-act-cap__sweep {
+  animation: game-acct-enter-sweep 0.85s ease-out 1;
+  opacity: 1;
+}
+
+.game-acct-act-cap__ico {
+  position: absolute;
+  z-index: 2;
+  left: 5px;
+  top: 50%;
+  width: 40px;
+  height: 20px;
+  margin: 0;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  transform: translateY(-50%);
+  transition:
+    transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.2s ease,
+    left 0.16s ease;
+}
+
+.game-acct-act-cap__ico .game-acct-act__glyph {
+  width: 26px;
+  height: 13px;
+  display: block;
+}
+
+.game-acct-act-cap:hover:not(:disabled) .game-acct-act-cap__ico {
+  transform: translateY(calc(-50% - 1px)) scale(1.05);
+}
+
+.game-acct-act-cap__label {
+  position: relative;
+  z-index: 2;
+  flex: 0 1 auto;
+  min-width: 0;
+  text-align: center;
+  /* крупная надпись — оптический центр кнопки */
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  line-height: 1.05;
+  text-transform: uppercase;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  transform-origin: center;
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), filter 0.2s ease;
+}
+
+.game-acct-act-cap:hover:not(:disabled) .game-acct-act-cap__label {
+  transform: translateY(-1px) scale(1.04);
+}
+
+/* Сменить — soft cyan (вторичный акцент; статус сверху важнее) */
+.game-acct-act-cap--switch {
+  color: #a5f3fc;
+  background:
+    linear-gradient(180deg, rgba(165, 243, 252, 0.14) 0%, transparent 48%),
+    linear-gradient(145deg, #143a52 0%, #2a2458 52%, #15122a 100%);
+  box-shadow:
+    0 3px 10px rgba(0, 0, 0, 0.32),
+    0 0 0 1px rgba(34, 211, 238, 0.38),
+    0 0 8px rgba(34, 211, 238, 0.12),
+    inset 0 1px 2px rgba(165, 243, 252, 0.16),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.28);
+}
+
+.game-acct-act-cap--switch .game-acct-act-cap__sweep {
+  background: linear-gradient(
+    115deg,
+    transparent 0%,
+    transparent 40%,
+    rgba(165, 243, 252, 0.08) 46%,
+    rgba(34, 211, 238, 0.32) 50%,
+    rgba(167, 139, 250, 0.22) 54%,
+    transparent 64%,
+    transparent 100%
+  );
+}
+
+.game-acct-act-cap--switch .game-acct-act-cap__ico {
+  color: #7dd3fc;
+  background:
+    linear-gradient(180deg, rgba(165, 243, 252, 0.22) 0%, transparent 55%),
+    linear-gradient(105deg, #1a5568 0%, #2e2a5c 60%, #1e1b3a 100%);
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.4),
+    inset 0 1px 1px rgba(165, 243, 252, 0.22),
+    inset 0 -1px 3px rgba(0, 0, 0, 0.35);
+}
+
+.game-acct-act-cap--switch .game-acct-act-cap__label {
+  background: linear-gradient(105deg, #e0f2fe 0%, #67e8f9 48%, #c4b5fd 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter:
+    drop-shadow(0 1px 0 rgba(0, 0, 0, 0.55))
+    drop-shadow(0 0 3px rgba(34, 211, 238, 0.22));
+}
+
+.game-acct-act-cap--switch:hover:not(:disabled) {
+  filter: brightness(1.06) saturate(1.04);
+  box-shadow:
+    0 5px 14px rgba(0, 0, 0, 0.38),
+    0 0 0 1px rgba(34, 211, 238, 0.55),
+    0 0 14px rgba(34, 211, 238, 0.22),
+    inset 0 1px 2px rgba(165, 243, 252, 0.2),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.26);
+}
+
+.game-acct-act-cap--switch:hover:not(:disabled) .game-acct-act-cap__label {
+  filter:
+    drop-shadow(0 1px 0 rgba(0, 0, 0, 0.55))
+    drop-shadow(0 0 6px rgba(34, 211, 238, 0.4));
+}
+
+/* Выйти — soft rose (вторичный) */
+.game-acct-act-cap--out {
+  color: #fecdd3;
+  background:
+    linear-gradient(180deg, rgba(251, 113, 133, 0.14) 0%, transparent 48%),
+    linear-gradient(145deg, #4a1830 0%, #3a2060 52%, #18122a 100%);
+  box-shadow:
+    0 3px 10px rgba(0, 0, 0, 0.32),
+    0 0 0 1px rgba(251, 113, 133, 0.38),
+    0 0 8px rgba(244, 63, 94, 0.1),
+    inset 0 1px 2px rgba(254, 205, 211, 0.14),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.28);
+}
+
+.game-acct-act-cap--out .game-acct-act-cap__sweep {
+  background: linear-gradient(
+    115deg,
+    transparent 0%,
+    transparent 40%,
+    rgba(254, 205, 211, 0.08) 46%,
+    rgba(251, 113, 133, 0.32) 50%,
+    rgba(192, 132, 252, 0.22) 54%,
+    transparent 64%,
+    transparent 100%
+  );
+}
+
+.game-acct-act-cap--out .game-acct-act-cap__ico {
+  color: #fda4af;
+  background:
+    linear-gradient(180deg, rgba(254, 205, 211, 0.2) 0%, transparent 55%),
+    linear-gradient(105deg, #6b2038 0%, #3a2060 60%, #1e1535 100%);
+  box-shadow:
+    0 0 0 1px rgba(251, 113, 133, 0.4),
+    inset 0 1px 1px rgba(254, 205, 211, 0.2),
+    inset 0 -1px 3px rgba(0, 0, 0, 0.35);
+}
+
+.game-acct-act-cap--out .game-acct-act-cap__label {
+  background: linear-gradient(105deg, #ffe4e6 0%, #fb7185 48%, #e9d5ff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter:
+    drop-shadow(0 1px 0 rgba(0, 0, 0, 0.55))
+    drop-shadow(0 0 3px rgba(244, 63, 94, 0.2));
+}
+
+.game-acct-act-cap--out:hover:not(:disabled) {
+  filter: brightness(1.06) saturate(1.04);
+  box-shadow:
+    0 5px 14px rgba(0, 0, 0, 0.38),
+    0 0 0 1px rgba(251, 113, 133, 0.55),
+    0 0 14px rgba(244, 63, 94, 0.2),
+    inset 0 1px 2px rgba(254, 205, 211, 0.18),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.26);
+}
+
+.game-acct-act-cap--out:hover:not(:disabled) .game-acct-act-cap__label {
+  filter:
+    drop-shadow(0 1px 0 rgba(0, 0, 0, 0.55))
+    drop-shadow(0 0 6px rgba(244, 63, 94, 0.38));
+}
+
+/* Горизонтальная 3D-капсула «Войти» — без сферы/дуги */
+.game-acct-enter-cap {
+  appearance: none;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 188px;
+  margin: 0 auto;
+  padding: 9px 14px 9px 10px;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  color: #fef3c7;
+  font-family: 'Orbitron', 'Exo 2', ui-sans-serif, system-ui, sans-serif;
+  background:
+    linear-gradient(180deg, rgba(255, 236, 180, 0.22) 0%, transparent 42%),
+    linear-gradient(145deg, #4a2e14 0%, #1a0c16 48%, #0a050c 100%);
+  box-shadow:
+    0 6px 14px rgba(0, 0, 0, 0.55),
+    0 2px 4px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(251, 191, 36, 0.7),
+    0 0 0 3px rgba(76, 29, 149, 0.42),
+    0 0 16px rgba(245, 158, 11, 0.28),
+    inset 0 2px 3px rgba(255, 240, 200, 0.28),
+    inset 0 -5px 10px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+  isolation: isolate;
+  transition: transform 0.16s ease, filter 0.16s ease, box-shadow 0.16s ease;
+}
+
+.game-acct-enter-cap::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.16) 40%,
+    transparent 70%
+  );
+  transform: translateX(-130%);
+  transition: transform 0.5s ease;
+  z-index: 2;
+}
+
+.game-acct-enter-cap:hover:not(:disabled)::before {
+  transform: translateX(130%);
+}
+
+/* Периодический перелив / проблеск «Войти» */
+.game-acct-enter-cap--shimmer {
+  animation: game-acct-enter-glow 3.8s ease-in-out infinite;
+}
+
+.game-acct-enter-cap__sweep {
+  position: absolute;
+  inset: -20% -40%;
+  pointer-events: none;
+  z-index: 1;
+  background: linear-gradient(
+    115deg,
+    transparent 0%,
+    transparent 38%,
+    rgba(254, 243, 199, 0.08) 44%,
+    rgba(251, 191, 36, 0.55) 50%,
+    rgba(244, 114, 182, 0.4) 54%,
+    rgba(192, 132, 252, 0.22) 58%,
+    transparent 66%,
+    transparent 100%
+  );
+  transform: translateX(-75%) skewX(-12deg);
+  animation: game-acct-enter-sweep 3.8s ease-in-out infinite;
+}
+
+.game-acct-enter-cap--shimmer-boost {
+  animation-duration: 2.4s;
+  animation-name: game-acct-enter-glow-boost;
+}
+
+.game-acct-enter-cap--shimmer-boost .game-acct-enter-cap__sweep {
+  animation-duration: 2.4s;
+  background: linear-gradient(
+    115deg,
+    transparent 0%,
+    transparent 34%,
+    rgba(255, 251, 235, 0.2) 42%,
+    rgba(251, 191, 36, 0.75) 50%,
+    rgba(244, 114, 182, 0.55) 55%,
+    rgba(167, 139, 250, 0.35) 60%,
+    transparent 70%,
+    transparent 100%
+  );
+}
+
+.game-acct-enter-cap:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+.game-acct-enter-cap:hover:not(:disabled) {
+  filter: brightness(1.08) saturate(1.06);
+  transform: translateY(-2px);
+  box-shadow:
+    0 10px 18px rgba(0, 0, 0, 0.6),
+    0 3px 6px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(251, 191, 36, 0.85),
+    0 0 0 3px rgba(168, 85, 247, 0.48),
+    0 0 22px rgba(245, 158, 11, 0.38),
+    inset 0 2px 3px rgba(255, 240, 200, 0.32),
+    inset 0 -5px 10px rgba(0, 0, 0, 0.5);
+}
+
+.game-acct-enter-cap:hover:not(:disabled) .game-acct-enter-cap__label {
+  transform: translateY(-2px) scale(1.08);
+  filter:
+    drop-shadow(0 1px 0 rgba(0, 0, 0, 0.85))
+    drop-shadow(0 0 8px rgba(251, 191, 36, 0.65))
+    drop-shadow(0 0 14px rgba(244, 114, 182, 0.35));
+}
+
+.game-acct-enter-cap:hover:not(:disabled) .game-acct-enter-cap__ico {
+  transform: translateY(-1px) scale(1.06);
+  box-shadow:
+    0 0 0 1px rgba(251, 191, 36, 0.75),
+    0 0 0 2px rgba(168, 85, 247, 0.45),
+    0 0 10px rgba(251, 191, 36, 0.4),
+    inset 0 1px 2px rgba(255, 240, 200, 0.35),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.game-acct-enter-cap:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(251, 191, 36, 0.65),
+    0 0 0 3px rgba(76, 29, 149, 0.35),
+    inset 0 4px 8px rgba(0, 0, 0, 0.45);
+}
+
+.game-acct-enter-cap:active:not(:disabled) .game-acct-enter-cap__label {
+  transform: translateY(0) scale(1.02);
+}
+
+.game-acct-enter-cap__ico {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #fde68a;
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255, 248, 220, 0.4), transparent 48%),
+    linear-gradient(145deg, #3a2418, #120810);
+  box-shadow:
+    0 0 0 1px rgba(251, 191, 36, 0.55),
+    0 0 0 2px rgba(76, 29, 149, 0.35),
+    inset 0 1px 2px rgba(255, 240, 200, 0.3),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.5);
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.2s ease;
+}
+
+.game-acct-enter-cap__glyph {
+  width: 16px;
+  height: 16px;
+  display: block;
+  filter: drop-shadow(0 0 4px rgba(251, 191, 36, 0.55));
+}
+
+.game-acct-enter-cap__label {
+  position: relative;
+  z-index: 1;
+  flex: 0 1 auto;
+  min-width: 0;
+  text-align: center;
+  font-size: 0.58rem;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  line-height: 1.15;
+  text-transform: uppercase;
+  background: linear-gradient(105deg, #fef3c7 0%, #fbbf24 40%, #f9a8d4 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter:
+    drop-shadow(0 1px 0 rgba(0, 0, 0, 0.85))
+    drop-shadow(0 0 4px rgba(251, 191, 36, 0.35));
+  transform-origin: center;
+  transition:
+    transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    filter 0.22s ease;
+}
+
+/* Этап CTA-only: компактная оболочка вокруг одной кнопки */
+.game-acct-panel--cta-only {
+  width: auto;
+  min-width: 0;
+  max-width: min(220px, calc(100vw - 20px));
+  padding: 10px 12px 10px;
+  background:
+    radial-gradient(ellipse 90% 55% at 6% -18%, rgba(251, 191, 36, 0.32), transparent 48%),
+    radial-gradient(ellipse 70% 48% at 108% 6%, rgba(192, 132, 252, 0.22), transparent 46%),
+    linear-gradient(158deg, #12080a 0%, #0a0614 42%, #05040c 100%);
+  box-shadow:
+    0 0 0 1px rgba(251, 191, 36, 0.2) inset,
+    0 14px 32px rgba(0, 0, 0, 0.55),
+    0 0 24px rgba(245, 158, 11, 0.2);
+}
+
+.game-acct-panel--cta-only .game-acct-panel__cta--solo {
+  margin: 0;
+  width: 100%;
+  padding-right: 22px;
+}
+
+.game-acct-panel--cta-only .game-acct-enter-cap {
+  max-width: none;
+}
+
+.game-acct-x--cta {
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+}
+
+.game-acct-x--cta .game-acct-x__ico {
+  width: 12px;
+  height: 12px;
+}
+
+/*
+ * ПК: якорь для индикатора аккаунта (лампа 3p / бейдж режима 4p).
+ * Высота якоря не растёт — орб absolute, layout не трогает.
+ */
+.game-acct-pc-lamp-stack {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  max-width: 100%;
+  overflow: visible;
+}
+
+.game-header-pc-deal-orbit-wrap.game-acct-pc-anchor {
+  position: relative;
+  overflow: visible;
+}
+
+/* якорь 0×0 сразу под низом родителя; орб рисуется absolute */
+.game-acct-pc-anchor > .game-acct-dock--top-right,
+.game-acct-pc-lamp-stack > .game-acct-dock--top-right {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  width: 0;
+  height: 0;
+  margin: 0;
+  padding: 0;
+  flex: none;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 40;
+}
+
+.game-acct-dock--top-right .game-acct-ind {
+  top: 6px;
+  left: auto;
+  right: 0;
+  width: 36px;
+  height: 36px;
+  pointer-events: auto;
+}
+
+.game-acct-dock--top-right.game-acct-dock--mini .game-acct-ind {
+  width: 26px;
+  height: 26px;
+}
+
+/* Пока плашка открыта — не дублируем орб над ней */
+.game-acct-dock--plaque-open.game-acct-dock--top-right .game-acct-ind {
+  visibility: hidden;
+  pointer-events: none;
+  opacity: 0;
+}
+
+/* Мобилка: fixed справа внизу (рядом с зоной fullscreen; чат — центр/лево) */
+.game-acct-mobile-slot {
+  position: fixed;
+  right: max(10px, env(safe-area-inset-right, 0px));
+  bottom: max(10px, env(safe-area-inset-bottom, 0px));
+  width: 0;
+  height: 0;
+  z-index: 12610;
+  pointer-events: none;
+  overflow: visible;
+}
+
+/* Онлайн: чуть выше, если внизу виден свёрнутый док чата */
+.game-table-root.viewport-mobile:has([data-upnd-table-chat-toggle]) .game-acct-mobile-slot {
+  bottom: max(52px, calc(10px + env(safe-area-inset-bottom, 0px)));
+}
+
+/*
+ * Мобильный landscape: микро-орб справа, над зоной руки / ближе к Востоку.
+ * Fixed + 0×0 — layout не трогает.
+ */
+.game-table-root.viewport-mobile.viewport-mobile-landscape .game-acct-mobile-slot--landscape {
+  right: max(6px, env(safe-area-inset-right, 0px));
+  bottom: max(88px, calc(20vh + env(safe-area-inset-bottom, 0px)));
+  z-index: 42;
+}
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape:has([data-upnd-table-chat-toggle])
+  .game-acct-mobile-slot--landscape {
+  bottom: max(96px, calc(22vh + env(safe-area-inset-bottom, 0px)));
+}
+
+/* Полная / почти полная рука (3p≈12, 4p≈9): ещё выше и микро */
+.game-table-root.viewport-mobile.viewport-mobile-landscape .game-acct-mobile-slot--ls-lift {
+  right: max(4px, env(safe-area-inset-right, 0px));
+  bottom: max(128px, calc(34vh + env(safe-area-inset-bottom, 0px)));
+  z-index: 42;
+}
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-acct-mobile-slot--landscape
+  .game-acct-ind {
+  width: 20px;
+  height: 20px;
+}
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-acct-mobile-slot--landscape
+  .game-acct-dock--chip
+  .game-acct-ind,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-acct-mobile-slot--landscape
+  .game-acct-dock--mini
+  .game-acct-ind {
+  width: 17px;
+  height: 17px;
+}
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-acct-mobile-slot--ls-lift
+  .game-acct-ind,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-acct-mobile-slot--ls-lift
+  .game-acct-dock--chip
+  .game-acct-ind,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-acct-mobile-slot--ls-lift
+  .game-acct-dock--mini
+  .game-acct-ind {
+  width: 15px;
+  height: 15px;
+}
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-acct-mobile-slot--landscape
+  .game-acct-ind__sat--a {
+  transform: rotate(0deg) translateY(-9px);
+}
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-acct-mobile-slot--landscape
+  .game-acct-ind__sat--b {
+  transform: rotate(120deg) translateY(-9px);
+}
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-acct-mobile-slot--landscape
+  .game-acct-ind__sat--c {
+  transform: rotate(240deg) translateY(-9px);
+}
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-acct-mobile-slot--landscape
+  .game-acct-ind__sat--d {
+  transform: rotate(40deg) translateY(-7px);
+}
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-acct-mobile-slot--landscape
+  .game-acct-ind__sat--e {
+  transform: rotate(200deg) translateY(-7px);
+}
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-acct-mobile-slot--ls-lift
+  .game-acct-ind__sat--a {
+  transform: rotate(0deg) translateY(-7px);
+}
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-acct-mobile-slot--ls-lift
+  .game-acct-ind__sat--b {
+  transform: rotate(120deg) translateY(-7px);
+}
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-acct-mobile-slot--ls-lift
+  .game-acct-ind__sat--c {
+  transform: rotate(240deg) translateY(-7px);
+}
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-acct-mobile-slot--ls-lift
+  .game-acct-ind__sat--d {
+  transform: rotate(40deg) translateY(-5px);
+}
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-acct-mobile-slot--ls-lift
+  .game-acct-ind__sat--e {
+  transform: rotate(200deg) translateY(-5px);
+}
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-acct-mobile-slot--landscape
+  .game-acct-ind__dot {
+  width: 6px;
+  height: 6px;
+}
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-acct-mobile-slot--ls-lift
+  .game-acct-ind__dot {
+  width: 5px;
+  height: 5px;
+}
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-acct-mobile-slot--landscape
+  .game-acct-ind__sheen {
+  inset: 4px;
+}
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-acct-mobile-slot--landscape
+  .game-acct-ind__ring--inner {
+  inset: 3px;
+}
+
+/* —— Indicator chip / mini (absolute — вне потока) —— */
+.game-acct-ind {
+  appearance: none;
+  margin: 0;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: width 0.45s cubic-bezier(0.22, 1, 0.36, 1), height 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.game-acct-dock--bottom-right .game-acct-ind {
+  top: auto;
+  bottom: 0;
+  left: auto;
+  right: 0;
+}
+
+.game-acct-panel--from-bottom {
+  transform-origin: bottom right;
+}
+
+.game-acct-panel--from-top {
+  transform-origin: top right;
+}
+
+.game-acct-dock--chip .game-acct-ind {
+  animation: game-acct-breathe-host 3.6s ease-in-out infinite;
+}
+
+.game-acct-dock--mini .game-acct-ind {
+  width: 26px;
+  height: 26px;
+  animation: game-acct-breathe-host 3.2s ease-in-out infinite;
+}
+
+.game-acct-ind:focus-visible {
+  outline: 2px solid rgba(165, 243, 252, 0.85);
+  outline-offset: 3px;
+}
+
+.game-acct-ind__stars {
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0.6;
+  background-image:
+    radial-gradient(1px 1px at 20% 24%, rgba(255, 255, 255, 0.9), transparent),
+    radial-gradient(1px 1px at 78% 18%, rgba(165, 243, 252, 0.8), transparent),
+    radial-gradient(1.2px 1.2px at 60% 80%, rgba(196, 181, 253, 0.7), transparent);
+}
+
+.game-acct-ind__ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1px solid transparent;
+  background:
+    linear-gradient(#050816, #050816) padding-box,
+    linear-gradient(135deg, #a78bfa, #67e8f9, #e879f9, #c084fc, #a78bfa) border-box;
+  box-shadow: 0 0 16px rgba(139, 92, 246, 0.4);
+  animation: game-acct-spin 8.5s linear infinite;
+}
+
+.game-acct-dock--in .game-acct-ind__ring {
+  background:
+    linear-gradient(#050816, #050816) padding-box,
+    linear-gradient(135deg, #a78bfa, #34d399, #67e8f9, #c084fc, #a78bfa) border-box;
+  box-shadow:
+    0 0 16px rgba(139, 92, 246, 0.45),
+    0 0 10px rgba(52, 211, 153, 0.25);
+}
+
+.game-acct-dock--out .game-acct-ind__ring {
+  background:
+    linear-gradient(#050816, #050816) padding-box,
+    linear-gradient(135deg, #c084fc, #fbbf24, #f472b6, #a78bfa, #c084fc) border-box;
+  box-shadow: 0 0 16px rgba(168, 85, 247, 0.4);
+}
+
+.game-acct-ind__ring--inner {
+  inset: 5px;
+  animation-duration: 5.5s;
+  animation-direction: reverse;
+  opacity: 0.92;
+}
+
+.game-acct-dock--mini .game-acct-ind__ring--inner {
+  inset: 4px;
+}
+
+/* Переливчатые спутники на орбите (не белые) */
+.game-acct-ind__sat {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  margin: -2.5px 0 0 -2.5px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(circle at 30% 30%, #f5d0fe, #a78bfa 45%, #7c3aed);
+  box-shadow:
+    0 0 6px rgba(192, 132, 252, 0.95),
+    0 0 12px rgba(139, 92, 246, 0.65);
+}
+
+.game-acct-ind__sat--a {
+  transform: rotate(0deg) translateY(-20px);
+  background: radial-gradient(circle at 30% 30%, #e9d5ff, #c084fc 40%, #7c3aed);
+  box-shadow: 0 0 7px #c084fc, 0 0 14px rgba(168, 85, 247, 0.7);
+}
+
+.game-acct-ind__sat--b {
+  width: 4px;
+  height: 4px;
+  margin: -2px 0 0 -2px;
+  transform: rotate(120deg) translateY(-20px);
+  background: radial-gradient(circle at 30% 30%, #f0abfc, #e879f9 45%, #a21caf);
+  box-shadow: 0 0 7px #e879f9, 0 0 12px rgba(217, 70, 239, 0.65);
+}
+
+.game-acct-ind__sat--c {
+  width: 3.5px;
+  height: 3.5px;
+  margin: -1.75px 0 0 -1.75px;
+  transform: rotate(240deg) translateY(-20px);
+  background: radial-gradient(circle at 30% 30%, #ddd6fe, #8b5cf6 50%, #5b21b6);
+  box-shadow: 0 0 6px #8b5cf6, 0 0 11px rgba(109, 40, 217, 0.7);
+}
+
+.game-acct-ind__sat--d {
+  width: 4px;
+  height: 4px;
+  margin: -2px 0 0 -2px;
+  transform: rotate(40deg) translateY(-15px);
+  background: radial-gradient(circle at 30% 30%, #c4b5fd, #a78bfa 40%, #6d28d9);
+  box-shadow: 0 0 6px #a78bfa, 0 0 12px rgba(124, 58, 237, 0.75);
+}
+
+.game-acct-ind__sat--e {
+  width: 3px;
+  height: 3px;
+  margin: -1.5px 0 0 -1.5px;
+  transform: rotate(200deg) translateY(-15px);
+  background: radial-gradient(circle at 30% 30%, #f5d0fe, #d946ef 45%, #86198f);
+  box-shadow: 0 0 5px #d946ef, 0 0 10px rgba(192, 38, 211, 0.7);
+}
+
+.game-acct-dock--in .game-acct-ind__sat--a {
+  background: radial-gradient(circle at 30% 30%, #e9d5ff, #a78bfa 35%, #34d399);
+  box-shadow: 0 0 7px #a78bfa, 0 0 12px rgba(52, 211, 153, 0.55);
+}
+
+.game-acct-dock--in .game-acct-ind__sat--b {
+  background: radial-gradient(circle at 30% 30%, #f0abfc, #c084fc 40%, #22d3ee);
+  box-shadow: 0 0 7px #c084fc, 0 0 12px rgba(34, 211, 238, 0.5);
+}
+
+.game-acct-dock--mini .game-acct-ind__sat--a,
+.game-acct-dock--mini .game-acct-ind__sat--b,
+.game-acct-dock--mini .game-acct-ind__sat--c {
+  transform-origin: center;
+}
+
+.game-acct-dock--mini .game-acct-ind__sat--a {
+  transform: rotate(0deg) translateY(-13px);
+}
+.game-acct-dock--mini .game-acct-ind__sat--b {
+  transform: rotate(120deg) translateY(-13px);
+}
+.game-acct-dock--mini .game-acct-ind__sat--c {
+  transform: rotate(240deg) translateY(-13px);
+}
+.game-acct-dock--mini .game-acct-ind__sat--d {
+  transform: rotate(40deg) translateY(-10px);
+}
+.game-acct-dock--mini .game-acct-ind__sat--e {
+  transform: rotate(200deg) translateY(-10px);
+}
+
+.game-acct-ind__core {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+.game-acct-ind__sheen {
+  position: absolute;
+  inset: 7px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 35% 30%,
+    rgba(255, 255, 255, 0.45),
+    rgba(103, 232, 249, 0.2) 40%,
+    transparent 70%
+  );
+  animation: game-acct-core-sheen 2.8s ease-in-out infinite;
+}
+
+.game-acct-dock--out .game-acct-ind__sheen {
+  background: radial-gradient(
+    circle at 35% 30%,
+    rgba(255, 248, 220, 0.5),
+    rgba(251, 191, 36, 0.22) 42%,
+    transparent 72%
+  );
+}
+
+.game-acct-dock--mini .game-acct-ind__sheen {
+  inset: 5px;
+}
+
+.game-acct-ind__dot {
+  position: relative;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #ecfeff, var(--ga-cyan) 40%, var(--ga-vio));
+  box-shadow:
+    0 0 0 2px rgba(4, 16, 28, 0.9),
+    0 0 14px rgba(103, 232, 249, 0.75);
+  transition: width 0.4s ease, height 0.4s ease;
+  animation: game-acct-core-pulse 2.4s ease-in-out infinite;
+  transform-origin: center;
+}
+
+.game-acct-dock--in .game-acct-ind__dot {
+  background: linear-gradient(145deg, #f5d0fe, #a78bfa 40%, #34d399 85%);
+  box-shadow:
+    0 0 0 2px rgba(12, 8, 28, 0.9),
+    0 0 14px rgba(168, 85, 247, 0.75),
+    0 0 8px rgba(52, 211, 153, 0.45);
+}
+
+.game-acct-dock--out .game-acct-ind__dot {
+  background: linear-gradient(145deg, #fffbeb 0%, #fbbf24 42%, #f472b6 100%);
+  box-shadow:
+    0 0 0 2px rgba(36, 20, 8, 0.9),
+    0 0 12px rgba(251, 191, 36, 0.85),
+    0 0 20px rgba(244, 114, 182, 0.35);
+}
+
+/* Мобилка гость: после свёртки — чуть живее ядро (аффорданс входа) */
+.game-acct-dock--bottom-right.game-acct-dock--out .game-acct-ind__dot {
+  animation-duration: 1.8s;
+}
+
+.game-acct-dock--mini .game-acct-ind__dot {
+  width: 7px;
+  height: 7px;
+}
+
+@keyframes game-acct-plaque-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes game-acct-plaque-fold {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+  55% {
+    opacity: 0.55;
+    transform: translateY(-4px) scale(0.88);
+    filter: blur(0.4px);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.42);
+    filter: blur(2px);
+  }
+}
+
+@keyframes game-acct-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes game-acct-prism {
+  0% {
+    filter: hue-rotate(0deg) saturate(1.2);
+    opacity: 0.7;
+  }
+  50% {
+    filter: hue-rotate(55deg) saturate(1.45);
+    opacity: 0.95;
+  }
+  100% {
+    filter: hue-rotate(0deg) saturate(1.2);
+    opacity: 0.7;
+  }
+}
+
+@keyframes game-acct-rim-flow {
+  0% {
+    background-position: 0% 40%;
+  }
+  100% {
+    background-position: 100% 60%;
+  }
+}
+
+@keyframes game-acct-scan {
+  0%,
+  100% {
+    background-position: 0 -40%;
+  }
+  50% {
+    background-position: 0 140%;
+  }
+}
+
+@keyframes game-acct-aurora {
+  from {
+    opacity: 0.55;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0.95;
+    transform: translateY(6%) scale(1.06);
+  }
+}
+
+@keyframes game-acct-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.18);
+    opacity: 0.82;
+  }
+}
+
+@keyframes game-acct-breathe-host {
+  0%,
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  50% {
+    transform: scale(1.08);
+    filter: brightness(1.12);
+  }
+}
+
+/* Ядро индикатора: живое мерцание / дыхание (без смены цвета — цвет задаёт --in/--out) */
+@keyframes game-acct-core-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    filter: brightness(1) saturate(1);
+    opacity: 0.88;
+  }
+  50% {
+    transform: scale(1.22);
+    filter: brightness(1.35) saturate(1.15);
+    opacity: 1;
+  }
+}
+
+@keyframes game-acct-core-sheen {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.06);
+  }
+}
+
+@keyframes game-acct-enter-sweep {
+  0%,
+  55% {
+    transform: translateX(-75%) skewX(-12deg);
+    opacity: 0;
+  }
+  62% {
+    opacity: 1;
+  }
+  78% {
+    transform: translateX(75%) skewX(-12deg);
+    opacity: 0.95;
+  }
+  85%,
+  100% {
+    transform: translateX(85%) skewX(-12deg);
+    opacity: 0;
+  }
+}
+
+@keyframes game-acct-enter-glow {
+  0%,
+  50%,
+  100% {
+    filter: brightness(1) saturate(1);
+    box-shadow:
+      0 6px 14px rgba(0, 0, 0, 0.55),
+      0 2px 4px rgba(0, 0, 0, 0.4),
+      0 0 0 1px rgba(251, 191, 36, 0.7),
+      0 0 0 3px rgba(76, 29, 149, 0.42),
+      0 0 16px rgba(245, 158, 11, 0.28),
+      inset 0 2px 3px rgba(255, 240, 200, 0.28),
+      inset 0 -5px 10px rgba(0, 0, 0, 0.55);
+  }
+  62%,
+  72% {
+    filter: brightness(1.12) saturate(1.15);
+    box-shadow:
+      0 8px 18px rgba(0, 0, 0, 0.55),
+      0 0 0 1px rgba(251, 191, 36, 0.9),
+      0 0 0 3px rgba(168, 85, 247, 0.5),
+      0 0 28px rgba(245, 158, 11, 0.55),
+      0 0 18px rgba(244, 114, 182, 0.35),
+      inset 0 2px 3px rgba(255, 240, 200, 0.4),
+      inset 0 -5px 10px rgba(0, 0, 0, 0.5);
+  }
+}
+
+@keyframes game-acct-enter-glow-boost {
+  0%,
+  40%,
+  100% {
+    filter: brightness(1.02) saturate(1.05);
+    box-shadow:
+      0 6px 14px rgba(0, 0, 0, 0.55),
+      0 0 0 1px rgba(251, 191, 36, 0.75),
+      0 0 0 3px rgba(76, 29, 149, 0.45),
+      0 0 18px rgba(245, 158, 11, 0.35),
+      inset 0 2px 3px rgba(255, 240, 200, 0.3),
+      inset 0 -5px 10px rgba(0, 0, 0, 0.55);
+  }
+  52%,
+  68% {
+    filter: brightness(1.18) saturate(1.2);
+    box-shadow:
+      0 10px 22px rgba(0, 0, 0, 0.6),
+      0 0 0 1px rgba(253, 224, 71, 0.95),
+      0 0 0 3px rgba(192, 132, 252, 0.55),
+      0 0 34px rgba(245, 158, 11, 0.65),
+      0 0 22px rgba(244, 114, 182, 0.45),
+      inset 0 2px 4px rgba(255, 240, 200, 0.45),
+      inset 0 -5px 10px rgba(0, 0, 0, 0.48);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-acct-panel,
+  .game-acct-panel--folding,
+  .game-acct-ind__ring,
+  .game-acct-ind__dot,
+  .game-acct-ind__sheen,
+  .game-acct-dock--chip .game-acct-ind,
+  .game-acct-dock--mini .game-acct-ind,
+  .game-acct-art__prism,
+  .game-acct-art__scan,
+  .game-acct-art__rim,
+  .game-acct-panel__aurora,
+  .game-acct-enter-cap--shimmer,
+  .game-acct-enter-cap__sweep,
+  .game-acct-act-cap:hover:not(:disabled) .game-acct-act-cap__sweep {
+    animation: none;
+  }
+
+  .game-acct-panel--folding {
+    opacity: 0;
+  }
+
+  .game-acct-ind {
+    transition: none;
+  }
+}
+
+/* —— PlayerInfoPanel dossier —— */
+.player-info-panel-card--dossier {
+  width: min(420px, calc(100vw - 28px));
+  max-height: min(88dvh, 720px);
+  overflow: auto;
+  padding: 14px 16px 18px;
+}
+
+.player-info-panel-dossier-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.player-info-panel-avatar-wrap--dossier {
+  padding: 8px;
+  border-radius: 50%;
+  background:
+    linear-gradient(145deg, rgba(103, 232, 249, 0.45), rgba(232, 121, 249, 0.35)),
+    rgba(8, 6, 24, 0.9);
+  box-shadow:
+    0 14px 36px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(255, 255, 255, 0.1),
+    0 0 28px rgba(103, 232, 249, 0.22);
+}
+
+.player-info-panel-role-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+
+.player-info-panel-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-family: 'Exo 2', 'Outfit', ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.player-info-panel-chip--ai {
+  border: 1px solid rgba(52, 211, 153, 0.55);
+  background: rgba(6, 78, 59, 0.55);
+  color: #6ee7b7;
+}
+
+.player-info-panel-chip--human {
+  border: 1px solid rgba(167, 139, 250, 0.55);
+  background: rgba(76, 29, 149, 0.4);
+  color: #e9d5ff;
+}
+
+.player-info-panel-chip--you {
+  border: 1px solid rgba(251, 191, 36, 0.6);
+  background: rgba(120, 53, 15, 0.45);
+  color: #fde68a;
+}
+
+.player-info-panel-chip--host {
+  border: 1px solid rgba(103, 232, 249, 0.55);
+  background: rgba(8, 47, 73, 0.55);
+  color: #67e8f9;
+}
+
+.player-info-panel-chip--seat {
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  background: rgba(15, 23, 42, 0.65);
+  color: #cbd5e1;
+}
+
+.player-info-panel-chip--pause {
+  border: 1px solid rgba(251, 113, 133, 0.55);
+  background: rgba(136, 19, 55, 0.4);
+  color: #fda4af;
+}
+
+.player-info-panel-player-name--dossier {
+  margin: 2px 0 0 !important;
+  font-family: 'Orbitron', 'Exo 2', ui-sans-serif, system-ui, sans-serif !important;
+  font-size: clamp(1.15rem, 4.2vw, 1.45rem) !important;
+  font-weight: 850 !important;
+  letter-spacing: 0.03em;
+  background: linear-gradient(115deg, #fde68a 0%, #f0abfc 45%, #67e8f9 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent !important;
+}
+
+.player-info-panel-mode-line {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: rgba(167, 139, 250, 0.95);
+}
+
+.player-info-panel-details {
+  width: 100%;
+  margin-top: 4px;
+  border-top: 1px solid rgba(167, 139, 250, 0.28);
+  padding-top: 8px;
+}
+
+.player-info-panel-details__summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 4px;
+  font-family: 'Orbitron', 'Exo 2', ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #67e8f9;
+}
+
+.player-info-panel-details__summary::-webkit-details-marker {
+  display: none;
+}
+
+.player-info-panel-details__summary::after {
+  content: '';
+  width: 0.45rem;
+  height: 0.45rem;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform 0.2s ease;
+  opacity: 0.85;
+}
+
+.player-info-panel-details[open] .player-info-panel-details__summary::after {
+  transform: rotate(-135deg);
+  margin-top: 4px;
+}
+
+.player-info-panel-details__body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 2px 6px;
+}
+
+.player-info-panel-detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.player-info-panel-detail-row__k {
+  font-size: 0.8rem;
+  font-weight: 650;
+  color: #c4b5fd;
+}
+
+.player-info-panel-detail-row__v {
+  font-size: 0.92rem;
+  font-weight: 750;
+  color: #f8fafc;
+  text-align: right;
+}
+
+.avatar-menu-sheet-acct {
+  width: 100%;
+  margin: 0 0 10px;
+  padding: 0 4px;
+  box-sizing: border-box;
+}
+
+.avatar-menu-sheet-btn--signin {
+  width: 100%;
+  margin: 0 0 8px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1.5px solid rgba(251, 191, 36, 0.75);
+  background:
+    linear-gradient(115deg, rgba(251, 191, 36, 0.35), rgba(232, 121, 249, 0.35));
+  color: #fef3c7;
+  font-family: 'Orbitron', 'Exo 2', ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.78rem;
+  font-weight: 850;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  box-shadow: 0 0 18px rgba(251, 191, 36, 0.28);
+  cursor: pointer;
+}
+
+.avatar-menu-sheet-btn--signin:hover {
+  filter: brightness(1.08);
+}
+
+.avatar-menu-sheet-btn--signin .avatar-menu-sheet-btn-label {
+  color: inherit;
+}

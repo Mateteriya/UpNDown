@@ -21,6 +21,10 @@ export type MilestoneId =
   | 'elo_adept'
   | 'elo_expert'
   | 'style_formed'
+  | 'party_300'
+  | 'party_400'
+  | 'party_500'
+  | 'exact_deal_10'
   | 'gold_frame_premium'
   | 'saturn_premium'
   | 'neural_premium'
@@ -56,6 +60,10 @@ export type MilestoneInput = {
   onlineWins: number;
   elo: number | null;
   style: BidPlayStyle;
+  /** Лучший итог партии (очки) */
+  bestPartyScore?: number;
+  /** Сколько раз взяли ровно 10/10 */
+  exactDeal10Count?: number;
 };
 
 export type MilestoneStatus = {
@@ -110,12 +118,12 @@ export const MILESTONE_DEFS: readonly MilestoneDef[] = [
   },
   {
     id: 'elo_adept',
-    target: 1100,
+    target: 1120,
     reward: { type: 'badge', titleKey: 'eloAdept' },
   },
   {
     id: 'elo_expert',
-    target: 1200,
+    target: 1240,
     reward: { type: 'title', titleKey: 'eloExpert' },
     featuredRank: 4,
   },
@@ -123,6 +131,26 @@ export const MILESTONE_DEFS: readonly MilestoneDef[] = [
     id: 'style_formed',
     target: 1,
     reward: { type: 'title', titleKey: 'styleFormed' },
+  },
+  {
+    id: 'party_300',
+    target: 300,
+    reward: { type: 'badge', titleKey: 'party300' },
+  },
+  {
+    id: 'party_400',
+    target: 400,
+    reward: { type: 'badge', titleKey: 'party400' },
+  },
+  {
+    id: 'party_500',
+    target: 500,
+    reward: { type: 'title', titleKey: 'party500' },
+  },
+  {
+    id: 'exact_deal_10',
+    target: 1,
+    reward: { type: 'badge', titleKey: 'exactDeal10' },
   },
   {
     id: 'gold_frame_premium',
@@ -212,6 +240,12 @@ function currentFor(def: MilestoneDef, input: MilestoneInput): number {
       return input.elo != null && Number.isFinite(input.elo) ? input.elo : 0;
     case 'style_formed':
       return input.style !== 'learning' ? 1 : 0;
+    case 'party_300':
+    case 'party_400':
+    case 'party_500':
+      return Math.max(0, input.bestPartyScore ?? 0);
+    case 'exact_deal_10':
+      return Math.max(0, input.exactDeal10Count ?? 0);
     case 'gold_frame_premium':
       // Unlock condition: reached adept tier (same as elo_adept), rewarded only with premium
       if (input.elo == null || !Number.isFinite(input.elo)) return 0;

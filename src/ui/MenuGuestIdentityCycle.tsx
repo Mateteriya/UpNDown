@@ -482,7 +482,7 @@ function GuestMapHint({ uid, onHideMapHint }: { uid: string; onHideMapHint?: () 
         className="menu-guest-map-hint__hit"
         aria-expanded={tipOpen}
         aria-controls={tipId}
-        aria-label="Подсказка: профиль и аккаунт не заданы"
+        aria-label={t('menu.identityGuestHintAria')}
         onClick={(e) => {
           e.stopPropagation();
           e.preventDefault();

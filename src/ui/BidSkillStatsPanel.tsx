@@ -4,9 +4,10 @@
  */
 
 import { useState, type CSSProperties } from 'react';
-import type { DealSkillSummary } from '../game/playerSkillStats';
+import type { BidStyleFlavor, DealSkillSummary } from '../game/playerSkillStats';
 import { buildMatchSkillInsight } from '../game/playerSkillStats';
 import type { LocalSkillView } from '../game/localSkillCache';
+import type { MatchHighlight } from '../game/matchHighlights';
 import { useT, type TFunc } from '../i18n';
 
 function styleTitle(t: TFunc, style: LocalSkillView['style']): string {
@@ -43,6 +44,59 @@ function styleBlurb(t: TFunc, style: LocalSkillView['style']): string {
   }
 }
 
+function styleLong(t: TFunc, style: LocalSkillView['style']): string {
+  switch (style) {
+    case 'sniper':
+      return t('cabinet.skillStyleSniperLong');
+    case 'hunter':
+      return t('cabinet.skillStyleHunterLong');
+    case 'cautious':
+      return t('cabinet.skillStyleCautiousLong');
+    case 'chaotic':
+      return t('cabinet.skillStyleChaoticLong');
+    case 'learning':
+      return t('cabinet.skillStyleLearningLong');
+    default:
+      return t('cabinet.skillStyleBalancedLong');
+  }
+}
+
+function styleTip(t: TFunc, style: LocalSkillView['style']): string {
+  switch (style) {
+    case 'sniper':
+      return t('cabinet.skillStyleSniperTip');
+    case 'hunter':
+      return t('cabinet.skillStyleHunterTip');
+    case 'cautious':
+      return t('cabinet.skillStyleCautiousTip');
+    case 'chaotic':
+      return t('cabinet.skillStyleChaoticTip');
+    case 'learning':
+      return t('cabinet.skillStyleLearningTip');
+    default:
+      return t('cabinet.skillStyleBalancedTip');
+  }
+}
+
+const FLAVOR_KEYS: Record<BidStyleFlavor, string> = {
+  learning: 'skillFlavorLearning',
+  precision_minimalist: 'skillFlavorPrecisionMinimalist',
+  precision_bold: 'skillFlavorPrecisionBold',
+  precision_pure: 'skillFlavorPrecisionPure',
+  hunter_sharp: 'skillFlavorHunterSharp',
+  hunter_wild: 'skillFlavorHunterWild',
+  cautious_tight: 'skillFlavorCautiousTight',
+  cautious_soft: 'skillFlavorCautiousSoft',
+  chaos_recovering: 'skillFlavorChaosRecovering',
+  chaos_storm: 'skillFlavorChaosStorm',
+  balanced_flex: 'skillFlavorBalancedFlex',
+  balanced_steady: 'skillFlavorBalancedSteady',
+};
+
+function flavorTitle(t: TFunc, flavor: BidStyleFlavor): string {
+  return t(`cabinet.${FLAVOR_KEYS[flavor]}` as 'cabinet.skillFlavorLearning');
+}
+
 function biasLine(t: TFunc, view: LocalSkillView): string | null {
   if (view.dealTotal < 8) return null;
   switch (view.bias) {
@@ -73,9 +127,7 @@ export function BidSkillLifetimeRow({
   showPremiumHint?: boolean;
 }) {
   const t = useT();
-  const [detailsOpen, setDetailsOpen] = useState(
-    () => typeof window === 'undefined' || !window.matchMedia('(min-width: 1025px)').matches,
-  );
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   const exactW = view.exactPct ?? 0;
   const underW = view.underPct ?? 0;
@@ -281,13 +333,29 @@ export function BidSkillLifetimeRow({
       <div className={`bid-skill__details${detailsOpen ? ' is-open' : ''}`} aria-hidden={!detailsOpen}>
         {detailsOpen ? (
           <>
-          <div className={`bid-skill__style bid-skill__style--${view.style}`}>
+          <div className="bid-skill__taxonomy" aria-label={t('cabinet.skillTaxonomyTitle')}>
+            <strong className="bid-skill__taxonomy-title">{t('cabinet.skillTaxonomyTitle')}</strong>
+            <p className="bid-skill__taxonomy-lead">{t('cabinet.skillTaxonomyLead')}</p>
+            <ul className="bid-skill__taxonomy-list">
+              <li data-active={view.style === 'sniper' ? '1' : '0'}>{t('cabinet.skillTaxonomyItemSniper')}</li>
+              <li data-active={view.style === 'hunter' ? '1' : '0'}>{t('cabinet.skillTaxonomyItemHunter')}</li>
+              <li data-active={view.style === 'cautious' ? '1' : '0'}>{t('cabinet.skillTaxonomyItemCautious')}</li>
+              <li data-active={view.style === 'chaotic' ? '1' : '0'}>{t('cabinet.skillTaxonomyItemChaotic')}</li>
+              <li data-active={view.style === 'balanced' ? '1' : '0'}>{t('cabinet.skillTaxonomyItemBalanced')}</li>
+            </ul>
+          </div>
+
+          <div className={`bid-skill__style bid-skill__style--${view.style} bid-skill__style--hero`}>
             <span className="bid-skill__style-tag" aria-hidden="true">
               ID
             </span>
             <div className="bid-skill__style-body">
+              <span className="bid-skill__style-kicker">{t('cabinet.skillTaxonomyTitle')}</span>
               <span className="bid-skill__style-name">{styleTitle(t, view.style)}</span>
+              <span className="bid-skill__style-flavor">{flavorTitle(t, view.flavor)}</span>
               <span className="bid-skill__style-blurb">{styleBlurb(t, view.style)}</span>
+              <span className="bid-skill__style-long">{styleLong(t, view.style)}</span>
+              <span className="bid-skill__style-tip">{styleTip(t, view.style)}</span>
             </div>
             <span className="bid-skill__style-pulse" aria-hidden="true" />
           </div>
@@ -328,6 +396,7 @@ export function BidSkillLifetimeRow({
             <p className="bid-skill__empty">{t('cabinet.skillEmptyHint')}</p>
           )}
 
+          <p className="bid-skill__grid-lead">{t('cabinet.skillGridLead')}</p>
           <div className="bid-skill__grid">
             {view.avgPlace != null ? (
               <div className="bid-skill__grid-cell bid-skill__grid-cell--cyan">
@@ -375,29 +444,51 @@ export function BidSkillLifetimeRow({
   );
 }
 
+function celebrationText(t: TFunc, h: MatchHighlight): string {
+  if (h.kind === 'party_score' && h.tier) {
+    return t(`cabinet.highlight.${h.labelKey}` as 'cabinet.highlight.scoreTierMini', {
+      n: h.value,
+    });
+  }
+  if (h.kind === 'exact_deal') {
+    return t(`cabinet.highlight.${h.labelKey}` as 'cabinet.highlight.exactDeal10', {
+      n: h.value,
+    });
+  }
+  if (h.kind === 'perfect_party') {
+    return t('cabinet.highlight.perfectParty', { n: h.value });
+  }
+  if (h.kind === 'exact_streak') {
+    return t('cabinet.highlight.exactStreak', { n: h.value });
+  }
+  return t('cabinet.highlight.generic');
+}
+
 export function MatchBidSkillInsight({
   match,
   deviceAccuracyPct,
   compact,
+  celebration,
 }: {
   match: DealSkillSummary;
   deviceAccuracyPct: number | null;
   compact?: boolean;
+  celebration?: MatchHighlight | null;
 }) {
   const t = useT();
-  if (match.deals <= 0) return null;
+  if (match.deals <= 0 && !celebration) return null;
 
-  const insight = buildMatchSkillInsight(match, deviceAccuracyPct);
+  const insight = match.deals > 0 ? buildMatchSkillInsight(match, deviceAccuracyPct) : null;
   let insightText: string | null = null;
-  if (insight.kind === 'perfect') {
+  if (insight?.kind === 'perfect') {
     insightText = t('gameOver.skillInsightPerfect');
-  } else if (insight.kind === 'vs_avg' && insight.deltaVsAvg != null && insight.deltaVsAvg !== 0) {
+  } else if (insight?.kind === 'vs_avg' && insight.deltaVsAvg != null && insight.deltaVsAvg !== 0) {
     const d = insight.deltaVsAvg;
     insightText =
       d > 0
         ? t('gameOver.skillInsightAboveAvg', { n: Math.abs(d) })
         : t('gameOver.skillInsightBelowAvg', { n: Math.abs(d) });
-  } else if (insight.kind === 'worst_miss' && insight.worstMiss) {
+  } else if (insight?.kind === 'worst_miss' && insight.worstMiss) {
     const w = insight.worstMiss;
     insightText = t('gameOver.skillInsightWorst', {
       deal: w.dealNumber,
@@ -412,16 +503,23 @@ export function MatchBidSkillInsight({
         <span className="stat-hud__led" />
         <span className="stat-hud__eyebrow">{t('gameOver.skillMatchTitle')}</span>
       </div>
-      <div className="bid-skill__match-line">
-        <strong>{match.accuracyPct}%</strong>
-        <span>
-          {t('gameOver.skillMatchSplit', {
-            exact: match.exact,
-            under: match.under,
-            over: match.over,
-          })}
-        </span>
-      </div>
+      {celebration ? (
+        <p className="bid-skill__celebration" role="status">
+          {celebrationText(t, celebration)}
+        </p>
+      ) : null}
+      {match.deals > 0 ? (
+        <div className="bid-skill__match-line">
+          <strong>{match.accuracyPct}%</strong>
+          <span>
+            {t('gameOver.skillMatchSplit', {
+              exact: match.exact,
+              under: match.under,
+              over: match.over,
+            })}
+          </span>
+        </div>
+      ) : null}
       {insightText ? <p className="bid-skill__insight">{insightText}</p> : null}
     </div>
   );

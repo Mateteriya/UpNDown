@@ -1,17 +1,19 @@
-# Карта метрик v1 (персональная статистика)
+# Карта метрик v1 → v1.6 (персональная статистика + рекорды)
 
-Зафиксировано при внедрении skill-слоя (2026-10). ELO остаётся главным рейтингом силы; точность заказов и соседние метрики — **вторая ось** (характер + соревнование с собой), не замена победе.
+Зафиксировано при внедрении skill-слоя (2026-10); **v1.6** — зал рекордов, тиры итога 300–1000+, расширенные стили, публичный Hall of Fame (облако). ELO остаётся главным рейтингом силы; точность заказов и соседние метрики — **вторая ось** (характер + соревнование с собой), не замена победе.
 
 См. также: [PLAN-RATING-ELO-HISTORY-TIERS.md](./PLAN-RATING-ELO-HISTORY-TIERS.md), [PLAN-DALEE.md](./PLAN-DALEE.md).
 
 ## Слои
 
-| Слой | Что считает | Где в UI | v1 |
-|------|-------------|----------|-----|
+| Слой | Что считает | Где в UI | v1 / v1.6 |
+|------|-------------|----------|-----------|
 | Ladder (сила) | ELO / место в rated-онлайне | Таблица лидеров | без изменений; **точность в строку лидера не тащим** |
-| Skill (заказ) | точность, недобор/перебор, серии | ЛК, RatingModal, post-game | **да** |
+| Skill (заказ) | точность, недобор/перебор, серии, **flavor стиля** | ЛК, RatingModal, post-game | **да** + long/tip/flavor |
 | Progress | офлайн/онлайн, тренд, тиры ELO, яркие раздачи | ЛК | **да** (v1.5) |
-| Goals / Rewards | lifetime-вехи → бейджи/титулы + рамки авы | ЛК + AvatarEditor | **да** (MVP); weekly — v2 |
+| Records | итоги 300–1000+, exact 8–10, perfect party | ЛК «Зал рекордов», post-game | **v1.6** (local + archive backfill) |
+| Hall of Fame | публичные highlights из облака | Leaderboard вкладка | **v1.6** (default rated online) |
+| Goals / Rewards | lifetime-вехи → бейджи/титулы + рамки авы | ЛК + AvatarEditor | **да** + party_300/400/500, exact_deal_10 |
 | Analytics (premium) | heatmap, режимы, тренды | stub / подписка | документ + hint в ЛК |
 
 ## Уже было
@@ -74,11 +76,19 @@
 - One-shot backfill из IndexedDB (`skillVersion`), если counters пустые
 - Чистая логика: `src/game/playerSkillStats.ts`, вехи: `src/game/playerMilestones.ts`
 
-## Вне scope v1
+## v1.6 — рекорды и зал славы
+
+- Детектор: `src/game/matchHighlights.ts` (тиры итога, exact ≥8, perfect, серии)
+- Личный store: `src/game/playerRecords.ts` (`updown_records_{profileId}`) + backfill из IndexedDB
+- UI: `PlayerRecordsHallPanel`, celebration в game-over
+- Облако: таблица `match_highlights`, RPC `updown_get_hall_of_fame` / `updown_insert_match_highlights`
+- Публичный дефолт scope = `rated_online`; вкладки online_all / offline_cloud
+
+## Вне scope v1 / v1.6
 
 - Миграции Supabase / колонки `player_ratings` под avg accuracy
 - Публичный лидерборд точности
 - Mode breakdown / heatmap UI
-- Cloud sync ачивок / anti-cheat
+- Cloud sync всех ачивок / anti-cheat
 - IAP / реальный entitlement (только флаги-stub)
 - Недельные челленджи (Goals v2)

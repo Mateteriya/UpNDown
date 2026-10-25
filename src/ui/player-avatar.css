@@ -27,6 +27,36 @@
   background: transparent;
 }
 
+/* Юг ПК/планшет: «D» — клип лица наследует форму корня */
+.player-avatar--shape-d {
+  border-radius: 12% 50% 50% 12% !important;
+}
+
+.player-avatar--shape-d .player-avatar__face {
+  border-radius: 12% 50% 50% 12% !important;
+  /* clip-path надёжнее border-radius при overflow:visible у корня */
+  clip-path: inset(0 round 12% 50% 50% 12%);
+  overflow: hidden !important;
+  background: #0f172a !important;
+}
+
+/*
+ * Фото часто круглое на чёрном фоне (JPEG) — увеличиваем кадр,
+ * чтобы залило плоский левый бок «D», а не оставляло чёрную щель.
+ */
+.player-avatar--shape-d .player-avatar__img,
+.player-avatar--shape-d:has(img) img {
+  border-radius: 0 !important;
+  width: 118% !important;
+  height: 118% !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin: -9% 0 0 -9% !important;
+  object-fit: cover !important;
+  object-position: 48% 40% !important;
+  display: block !important;
+}
+
 .player-avatar__face--initials {
   pointer-events: none;
 }
@@ -258,11 +288,11 @@ html body
   .user-player-panel-south-landscape-avatar-reserve
   .player-avatar--name-badge
   .player-avatar__name-badge {
-  z-index: 2 !important;
-  transform: scale(0.86);
+  z-index: 5 !important;
+  transform: none;
   transform-origin: center bottom;
-  opacity: 0.9;
-  filter: drop-shadow(0 1px 2px rgba(2, 6, 23, 0.3));
+  opacity: 1;
+  filter: drop-shadow(0 1px 3px rgba(2, 6, 23, 0.55));
   transition:
     transform 0.2s cubic-bezier(0.34, 1.35, 0.64, 1),
     opacity 0.18s ease,
@@ -302,12 +332,12 @@ html body
   z-index: 0;
   border-radius: inherit;
   pointer-events: none;
-  /* лёгкая серо-сиреневая дымка — не выбеливает плашку */
+  /* лёгкая дымка — слабее, чтобы плашка оставалась читаемой */
   background: linear-gradient(
     160deg,
-    rgba(226, 232, 240, 0.28) 0%,
-    rgba(203, 213, 225, 0.2) 45%,
-    rgba(196, 181, 253, 0.16) 100%
+    rgba(226, 232, 240, 0.14) 0%,
+    rgba(203, 213, 225, 0.1) 45%,
+    rgba(196, 181, 253, 0.08) 100%
   );
   animation: player-avatar-badge-south-veil 10s ease-in-out infinite;
 }
@@ -367,7 +397,7 @@ html body
   0%,
   78%,
   100% {
-    opacity: 0.7;
+    opacity: 0.35;
   }
   86%,
   94% {
@@ -444,7 +474,7 @@ html body
   .user-player-panel-pc-avatar-name-stack
   .user-player-panel-pc-avatar-wrap
   > .user-player-avatar-root {
-  transform-origin: left bottom !important;
+  transform-origin: center center !important;
   transition:
     transform 0.22s cubic-bezier(0.34, 1.45, 0.64, 1),
     filter 0.22s ease !important;
@@ -453,51 +483,47 @@ html body
 /* есть order-scale-wrap (idle ×1.2; часто +класс root на том же узле) → ×1.36 */
 html body
   .game-table-root:not(.viewport-mobile)
-  .user-player-panel-pc-avatar-name-stack:hover
-  .user-player-panel-pc-avatar-wrap
+  .user-player-panel-pc-avatar-wrap:hover
   > .user-player-avatar-order-scale-wrap {
   transform: scale(1.36) translateY(-2px) !important;
-  z-index: 9 !important;
+  z-index: 37 !important;
   filter: drop-shadow(0 0 10px rgba(167, 139, 250, 0.4));
 }
 
 /* только button-root, без scale-wrap */
 html body
   .game-table-root:not(.viewport-mobile)
-  .user-player-panel-pc-avatar-name-stack:hover
-  .user-player-panel-pc-avatar-wrap
+  .user-player-panel-pc-avatar-wrap:hover
   > .user-player-avatar-root:not(.user-player-avatar-order-scale-wrap) {
   transform: scale(1.14) translateY(-2px) !important;
-  z-index: 9 !important;
+  z-index: 37 !important;
   filter: drop-shadow(0 0 10px rgba(167, 139, 250, 0.4));
 }
 
 /* внутри scale-wrap — не масштабировать button/лицо повторно */
 html body
   .game-table-root:not(.viewport-mobile)
-  .user-player-panel-pc-avatar-name-stack:hover
+  .user-player-panel-pc-avatar-wrap:hover
   .user-player-avatar-order-scale-wrap
   .user-player-avatar-root,
 html body
   .game-table-root:not(.viewport-mobile)
-  .user-player-panel-pc-avatar-name-stack:hover
+  .user-player-panel-pc-avatar-wrap:hover
   .user-player-avatar-order-scale-wrap
   .player-avatar,
 html body
   .game-table-root:not(.viewport-mobile)
-  .user-player-panel-pc-avatar-name-stack:hover
+  .user-player-panel-pc-avatar-wrap:hover
   .user-player-avatar-order-scale-wrap
   .player-avatar:hover,
 html body
   .game-table-root:not(.viewport-mobile)
-  .user-player-panel-pc-avatar-name-stack:hover
-  .user-player-panel-pc-avatar-wrap
+  .user-player-panel-pc-avatar-wrap:hover
   > .user-player-avatar-root
   .player-avatar,
 html body
   .game-table-root:not(.viewport-mobile)
-  .user-player-panel-pc-avatar-name-stack:hover
-  .user-player-panel-pc-avatar-wrap
+  .user-player-panel-pc-avatar-wrap:hover
   > .user-player-avatar-root
   .player-avatar:hover {
   transform: none !important;
@@ -505,39 +531,38 @@ html body
 
 html body
   .game-table-root:not(.viewport-mobile)
-  .user-player-panel-pc-avatar-name-stack:hover
+  .user-player-panel-pc-avatar-wrap:hover
   .user-player-avatar-order-scale-wrap
   button.user-player-avatar-root,
 html body
   .game-table-root:not(.viewport-mobile)
-  .user-player-panel-pc-avatar-name-stack:hover
-  .user-player-panel-pc-avatar-wrap
+  .user-player-panel-pc-avatar-wrap:hover
   > .user-player-avatar-root {
   border: none !important;
   outline: none !important;
   background: transparent !important;
-  border-radius: 50% !important;
+  border-radius: 12% 50% 50% 12% !important;
 }
 
 html body
   .game-table-root:not(.viewport-mobile)
-  .user-player-panel-pc-avatar-name-stack:hover
+  .user-player-panel-pc-avatar-wrap:hover
   .player-avatar,
 html body
   .game-table-root:not(.viewport-mobile)
-  .user-player-panel-pc-avatar-name-stack:hover
+  .user-player-panel-pc-avatar-wrap:hover
   .player-avatar:has(img),
 html body
   .game-table-root:not(.viewport-mobile)
-  .user-player-panel-pc-avatar-name-stack:hover
+  .user-player-panel-pc-avatar-wrap:hover
   .player-avatar:hover,
 html body
   .game-table-root:not(.viewport-mobile)
-  .user-player-panel-pc-avatar-name-stack:hover
+  .user-player-panel-pc-avatar-wrap:hover
   .player-avatar:has(img):hover {
   border: none !important;
   border-color: transparent !important;
-  border-radius: 50% !important;
+  border-radius: 12% 50% 50% 12% !important;
   background: transparent !important;
   box-shadow:
     0 0 0 1.5px rgba(186, 230, 253, 0.95),
@@ -550,20 +575,20 @@ html body
 /* кольцо заказа: не рисовать второй обод «под» увеличенным лицом */
 html body
   .game-table-root:not(.viewport-mobile)
-  .user-player-panel-pc-avatar-name-stack:hover
+  .user-player-panel-pc-avatar-wrap:hover
   .opponent-avatar-order-ring {
   box-shadow:
     0 0 12px rgba(167, 139, 250, 0.45),
     0 0 20px rgba(103, 232, 249, 0.28) !important;
 }
 
-/* Hover: плашка чёткая (как импульс), вуаль/засвет выкл */
+/* Hover: плашка растёт вместе с аватаром (раньше scale(0.9) сжимала её) */
 html body
   .game-table-root:not(.viewport-mobile)
-  .user-player-panel-pc-avatar-name-stack:hover
+  .user-player-panel-pc-avatar-wrap:hover
   .player-avatar--name-badge
   .player-avatar__name-badge {
-  transform: scale(0.9) translateY(-1px) !important;
+  transform: scale(1.06) translateY(1px) !important;
   transform-origin: center bottom !important;
   opacity: 1 !important;
   filter: drop-shadow(0 0.5px 0.5px rgba(2, 6, 23, 0.55)) !important;
@@ -571,7 +596,7 @@ html body
 
 html body
   .game-table-root:not(.viewport-mobile)
-  .user-player-panel-pc-avatar-name-stack:hover
+  .user-player-panel-pc-avatar-wrap:hover
   .player-avatar--name-badge
   .player-avatar__name-badge__plate {
   animation: none !important;
@@ -590,7 +615,7 @@ html body
 
 html body
   .game-table-root:not(.viewport-mobile)
-  .user-player-panel-pc-avatar-name-stack:hover
+  .user-player-panel-pc-avatar-wrap:hover
   .player-avatar--name-badge
   .player-avatar__name-badge__plate::before {
   animation: none !important;
@@ -599,7 +624,7 @@ html body
 
 html body
   .game-table-root:not(.viewport-mobile)
-  .user-player-panel-pc-avatar-name-stack:hover
+  .user-player-panel-pc-avatar-wrap:hover
   .player-avatar--name-badge
   .player-avatar__name-badge__text {
   animation: none !important;
@@ -612,21 +637,13 @@ html body
 
 html body
   .game-table-root:not(.viewport-mobile)
-  .user-player-panel-pc-avatar-name-stack:hover
+  .user-player-panel-pc-avatar-wrap:hover
   .player-avatar__face::after {
   opacity: 1;
   animation: player-avatar-south-face-sheen 1.6s cubic-bezier(0.4, 0.05, 0.2, 1) infinite;
 }
 
-html body
-  .game-table-root:not(.viewport-mobile)
-  .user-player-panel-pc-avatar-name-stack:hover
-  .user-player-panel-pc-name-under-avatar {
-  transform: scale(1.12) translateY(-2px) !important;
-  transform-origin: left bottom !important;
-  z-index: 10 !important;
-  filter: none;
-}
+
 
 @keyframes player-avatar-south-face-sheen {
   0% {
@@ -678,7 +695,7 @@ html body
     .player-avatar__name-badge__text,
   html body
     .game-table-root:not(.viewport-mobile)
-    .user-player-panel-pc-avatar-name-stack:hover
+    .user-player-panel-pc-avatar-wrap:hover
     .player-avatar__face::after {
     animation: none !important;
   }

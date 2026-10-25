@@ -1017,6 +1017,7 @@ export function MainMenuScreen({
               <MenuCapsuleButton variant="link" title={t('menu.devRules')} href="/rules-lab" compact />
               <MenuCapsuleButton variant="link" title={t('menu.devAudio')} href="/audio-sfx-lab" compact />
               <MenuCapsuleButton variant="link" title={t('menu.devSoundGlyph')} href="/sound-glyph-lab" compact />
+              <MenuCapsuleButton variant="link" title={t('menu.devStarGlyph')} href="/star-glyph-lab" compact />
               <MenuCapsuleButton variant="link" title={t('menu.devChips')} href="/scoring-demo" compact />
               <MenuCapsuleButton variant="link" title={t('menu.devCosmo')} href="/cosmogenesis-demo.html" compact />
             </div>

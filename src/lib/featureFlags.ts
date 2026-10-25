@@ -1,45 +1,36 @@
 /**
  * Флаги фич (подписка/премиум и т.д.).
- * Сейчас тестируем локально — персональный ИИ для ручной паузы доступен всем.
- * Перед продакшном: включать по подписке (только премиум).
+ * Косметика и история — через isPremiumEntitled (см. premiumEntitlement.ts).
  */
 
-/** Персональный ИИ при ручной паузе — пока для всех; в продакшне: только для премиум-подписки. */
+import { isPremiumEntitled } from './premiumEntitlement';
+
+/** Персональный ИИ при ручной паузе — пока для всех (не в витрине Premium v1). */
 export function isPersonalAiReplacementEnabled(_userId?: string | null): boolean {
   return true;
-  // В продакшне: return !!userSubscription?.isPremium;
 }
 
-/** Выбор аватарок ИИ за столом — премиум; пока для тестов доступно всем. */
-export function isPremiumAiAvatarCustomizationEnabled(_userId?: string | null): boolean {
-  return true;
-  // В продакшне: return !!userSubscription?.isPremium;
+/** Выбор аватарок ИИ за столом — Premium. */
+export function isPremiumAiAvatarCustomizationEnabled(userId?: string | null): boolean {
+  return isPremiumEntitled(userId);
 }
 
-/** Элитный стикер «Джокер» в редакторе аватарки — премиум; пока для тестов доступно всем. */
-export function isPremiumAvatarJokerStickerEnabled(_userId?: string | null): boolean {
-  return true;
-  // В продакшне: return !!userSubscription?.isPremium;
+/** Элитный стикер «Джокер» в редакторе аватарки — Premium. */
+export function isPremiumAvatarJokerStickerEnabled(userId?: string | null): boolean {
+  return isPremiumEntitled(userId);
 }
 
 /**
- * «Плашка снизу» на аватарке — только премиум в аккаунте.
- * Вне аккаунта (локальный профиль/гость) — недоступна полностью.
- * Пока для тестов: любой залогиненный; в прод — подписка.
+ * «Плашка снизу» на аватарке — Premium + нужен аккаунт.
  */
 export function isPremiumAvatarNameBadgeEnabled(userId?: string | null): boolean {
   if (!userId) return false;
-  return true;
-  // В продакшне: return !!userSubscription?.isPremium;
+  return isPremiumEntitled(userId);
 }
 
-/**
- * Косметика вех (рамка «Золото» и т.п.) — премиум.
- * Пока для тестов доступно всем; в прод — подписка.
- */
-export function isMilestoneCosmeticPremiumEnabled(_userId?: string | null): boolean {
-  return true;
-  // В продакшне: return !!userSubscription?.isPremium;
+/** Косметика вех (рамка «Золото» и т.п.) — Premium. */
+export function isMilestoneCosmeticPremiumEnabled(userId?: string | null): boolean {
+  return isPremiumEntitled(userId);
 }
 
 /**

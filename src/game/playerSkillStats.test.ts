@@ -100,10 +100,11 @@ describe('playerSkillStats', () => {
   });
 
   it('classifies bid style and bias', () => {
-    expect(classifyBidPlayStyle(58, 8, 34, 155)).toBe('hunter');
+    /* over↑ = conservative; under↑ = expansive (hunter key) */
+    expect(classifyBidPlayStyle(58, 8, 34, 155)).toBe('cautious');
     expect(classifyBidPlayStyle(60, 18, 22, 80)).toBe('sniper');
-    expect(classifyBidPlayStyle(40, 10, 50, 40)).toBe('hunter');
-    expect(classifyBidPlayStyle(40, 50, 10, 40)).toBe('cautious');
+    expect(classifyBidPlayStyle(40, 10, 50, 40)).toBe('cautious');
+    expect(classifyBidPlayStyle(40, 50, 10, 40)).toBe('hunter');
     expect(classifyBidPlayStyle(50, 8, 34, 5)).toBe('learning');
     expect(classifyBidBias(8, 34, 155)).toBe('over');
     expect(classifyBidBias(34, 8, 155)).toBe('under');

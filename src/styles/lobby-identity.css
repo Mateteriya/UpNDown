@@ -175,3 +175,114 @@
 @keyframes lobby-id-pulse {
   50% { opacity: 0.4; }
 }
+
+/* Баннер «в аккаунте / не в аккаунте» при входе по QR (вечерянка) */
+.lobby-screen__acct-banner {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  width: 100%;
+  margin: 4px 0 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  box-sizing: border-box;
+  text-align: center;
+  animation: lobby-acct-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.lobby-screen__acct-banner--in {
+  border: 1.5px solid rgba(94, 232, 154, 0.65);
+  background:
+    linear-gradient(145deg, rgba(34, 197, 94, 0.28), transparent 55%),
+    rgba(6, 40, 28, 0.85);
+  box-shadow:
+    0 0 0 1px rgba(94, 232, 154, 0.2) inset,
+    0 8px 22px rgba(2, 6, 23, 0.45),
+    0 0 24px rgba(34, 197, 94, 0.2);
+}
+
+.lobby-screen__acct-banner--out {
+  border: 1.5px solid rgba(251, 191, 36, 0.7);
+  background:
+    linear-gradient(145deg, rgba(251, 191, 36, 0.22), rgba(232, 121, 249, 0.16)),
+    rgba(40, 20, 8, 0.88);
+  box-shadow:
+    0 0 0 1px rgba(253, 230, 138, 0.18) inset,
+    0 8px 22px rgba(2, 6, 23, 0.45),
+    0 0 26px rgba(251, 191, 36, 0.22);
+}
+
+.lobby-screen__acct-banner-title {
+  margin: 0;
+  font-family: 'Orbitron', 'Exo 2', ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.92rem;
+  font-weight: 850;
+  letter-spacing: 0.03em;
+  line-height: 1.25;
+}
+
+.lobby-screen__acct-banner--in .lobby-screen__acct-banner-title {
+  color: #86efac;
+  text-shadow: 0 0 12px rgba(34, 197, 94, 0.45);
+}
+
+.lobby-screen__acct-banner--out .lobby-screen__acct-banner-title {
+  color: #fde68a;
+  text-shadow: 0 0 12px rgba(251, 191, 36, 0.4);
+}
+
+.lobby-screen__acct-banner-hint {
+  margin: 0;
+  font-family: 'Exo 2', 'Outfit', ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.78rem;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.lobby-screen__acct-banner--in .lobby-screen__acct-banner-hint {
+  color: #a7f3d0;
+}
+
+.lobby-screen__acct-banner--out .lobby-screen__acct-banner-hint {
+  color: #f0abfc;
+}
+
+.lobby-screen__acct-banner-cta {
+  appearance: none;
+  align-self: center;
+  margin: 4px 0 0;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(103, 232, 249, 0.65);
+  background: linear-gradient(115deg, rgba(34, 211, 238, 0.35), rgba(167, 139, 250, 0.4));
+  font-family: 'Orbitron', 'Exo 2', ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #ecfeff;
+  cursor: pointer;
+  box-shadow: 0 0 16px rgba(103, 232, 249, 0.35);
+}
+
+.lobby-screen__acct-banner-cta:hover {
+  filter: brightness(1.1);
+}
+
+@keyframes lobby-acct-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lobby-screen__acct-banner {
+    animation: none;
+  }
+}

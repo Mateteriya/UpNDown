@@ -21,6 +21,7 @@
     "server:dev": "npm run dev --prefix server",
     "server:start": "npm run start --prefix server",
     "server:build": "npm run build --prefix server",
+    "server:prod-gate-local": "node scripts/ws-prod-gate-local.mjs",
     "host:panel": "npm run server:dev",
     "build:host-game": "node scripts/gen-favicon.mjs && vite build --config vite.host.config.ts",
     "host:kill": "powershell -ExecutionPolicy Bypass -File scripts/kill-host-ports.ps1",

@@ -2065,7 +2065,7 @@ function TableChatDock({
   const onTypingBroadcast = useCallback(
     (p: RoomChatTypingBroadcastPayload) => {
       if (p.user_id === userId) return;
-      const dn = (p.display_name ?? '').trim().slice(0, 40) || 'Игрок';
+      const dn = (p.display_name ?? '').trim().slice(0, 40) || t('common.player');
       typingPeersRef.current.set(p.user_id, {
         displayName: dn,
         expiresAt: Date.now() + TYPING_PEER_TTL_MS,
@@ -2189,7 +2189,7 @@ function TableChatDock({
       lastTypingBroadcastSentRef.current = now;
       broadcastTypingRef.current?.({
         user_id: userId,
-        display_name: displayName.trim().slice(0, 40) || 'Игрок',
+        display_name: displayName.trim().slice(0, 40) || t('common.player'),
       });
     }, 400);
     return () => clearTimeout(tid);
@@ -2858,16 +2858,16 @@ function TableChatDock({
 
   const sendTrimmedChatBody = useCallback(
     async (raw: string): Promise<{ ok: boolean; row?: RoomChatMessageRow | null }> => {
-      const t = raw.trim();
-      if (!t || sending) return { ok: false };
+      const body = raw.trim();
+      if (!body || sending) return { ok: false };
       if (offlineUiLab) {
         const labId = `lab-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
         const localRow: RoomChatMessageRow = {
           id: labId,
           room_id: roomId,
           user_id: userId,
-          display_name: displayName.trim() || 'Игрок',
-          body: t,
+          display_name: displayName.trim() || t('common.player'),
+          body,
           created_at: new Date().toISOString(),
         };
         setMessages((prev) => [...prev, localRow].slice(-FETCH_LIMIT));
@@ -2879,15 +2879,15 @@ function TableChatDock({
         id: optId,
         room_id: roomId,
         user_id: userId,
-        display_name: displayName.trim() || 'Игрок',
-        body: t,
+        display_name: displayName.trim() || t('common.player'),
+        body,
         created_at: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, optimistic].slice(-FETCH_LIMIT));
       setSending(true);
       setError(null);
 
-      const { error: err, row } = await sendRoomChatMessage(roomId, userId, displayName, t);
+      const { error: err, row } = await sendRoomChatMessage(roomId, userId, displayName, body);
       optimisticIdRef.current = null;
       setSending(false);
       if (err) {

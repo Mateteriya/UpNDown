@@ -15,6 +15,8 @@ const baseInput = (): MilestoneInput => ({
   onlineWins: 0,
   elo: 1000,
   style: 'learning',
+  bestPartyScore: 0,
+  exactDeal10Count: 0,
 });
 
 describe('playerMilestones', () => {
@@ -62,11 +64,11 @@ describe('playerMilestones', () => {
   });
 
   it('unlocks elo tiers by threshold', () => {
-    const adept = evaluateMilestones({ ...baseInput(), elo: 1100 }).find((s) => s.id === 'elo_adept')!;
-    const expert = evaluateMilestones({ ...baseInput(), elo: 1100 }).find((s) => s.id === 'elo_expert')!;
+    const adept = evaluateMilestones({ ...baseInput(), elo: 1120 }).find((s) => s.id === 'elo_adept')!;
+    const expert = evaluateMilestones({ ...baseInput(), elo: 1120 }).find((s) => s.id === 'elo_expert')!;
     expect(adept.unlocked).toBe(true);
     expect(expert.unlocked).toBe(false);
-    const expertOk = evaluateMilestones({ ...baseInput(), elo: 1200 }).find((s) => s.id === 'elo_expert')!;
+    const expertOk = evaluateMilestones({ ...baseInput(), elo: 1240 }).find((s) => s.id === 'elo_expert')!;
     expect(expertOk.unlocked).toBe(true);
   });
 
@@ -92,7 +94,7 @@ describe('playerMilestones', () => {
   });
 
   it('skips premium gold frame when premium disabled', () => {
-    const statuses = evaluateMilestones({ ...baseInput(), elo: 1100 });
+    const statuses = evaluateMilestones({ ...baseInput(), elo: 1120 });
     const { newlyUnlocked, store } = syncAchievementsFromMilestones(statuses, pid, {
       premiumCosmeticEnabled: false,
     });

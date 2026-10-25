@@ -17,6 +17,7 @@ import { ONLINE_LOBBY_MASCOT_URL } from '../lib/lobbyAssets';
 import { MODE_LEGENDS } from '../lib/modeLegends';
 import { useT } from '../i18n';
 import { LobbyCapsuleButton, LobbyCreatePanel, LobbyLastPartyToggle, LobbyBackButton, LobbyPasteCodeButton } from './LobbyEntryActions';
+import { LobbyShareSheet, buildLobbyShareUrl } from './LobbyShareSheet';
 import { OnlineHallScreen } from './OnlineHallScreen';
 import { PlayerAvatar } from './PlayerAvatar';
 import { getMenuIdentityStatus } from '../lib/menuIdentityStatus';
@@ -29,6 +30,8 @@ export interface LobbyScreenProps {
   onEditProfile?: () => void;
   onOpenAccount?: () => void;
   onGoToGame?: () => void;
+  /** Сброс QR/deep-link invite после осознанного выхода из комнаты */
+  onClearJoinInvite?: () => void;
   /** Код комнаты из URL (?code=XXX) — подставляется в поле «Присоединиться» */
   initialJoinCode?: string;
   /** Ссылка с панели хоста — упрощённый экран входа */
@@ -62,6 +65,7 @@ export function LobbyScreen({
   onEditProfile,
   onOpenAccount,
   onGoToGame,
+  onClearJoinInvite,
   initialJoinCode,
   lanGuestInvite,
   lanAutoJoinFromLink,
@@ -177,6 +181,10 @@ export function LobbyScreen({
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [leftPlayerToast, setLeftPlayerToast] = useState<string | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
+  const [shareSheetOpen, setShareSheetOpen] = useState(false);
+  const [actionToast, setActionToast] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  /** После выхода по QR не возвращать «Подключаем…» и не автоджойнить снова. */
+  const [autoJoinDismissed, setAutoJoinDismissed] = useState(false);
   const [stopRememberBusy, setStopRememberBusy] = useState(false);
   const [startingGame, setStartingGame] = useState(false);
   const [showLastPartyPanel, setShowLastPartyPanel] = useState(false);
@@ -265,6 +273,12 @@ export function LobbyScreen({
   }, [leftPlayerToast]);
 
   useEffect(() => {
+    if (!actionToast) return;
+    const t = window.setTimeout(() => setActionToast(null), 2400);
+    return () => window.clearTimeout(t);
+  }, [actionToast]);
+
+  useEffect(() => {
     const code = joinCode.trim();
     if (code.length < 4) {
       setRoomPeek(null);
@@ -299,8 +313,10 @@ export function LobbyScreen({
   const playerId = getOnlinePlayerId(user?.id);
 
   const handleCreateRoom = async () => {
-    if (!lanWs && !user?.id) {
+    // Канон PRODUCT-TIERS: создать стол (облако и LAN) — только с аккаунтом; гости join без аккаунта ок.
+    if (!user?.id) {
       setJoinError(t('lobby.createNeedAuth'));
+      onOpenAccount?.();
       return;
     }
     if (isWsOnlineTransport() && !isWsOnlineConfigured()) {
@@ -436,9 +452,7 @@ export function LobbyScreen({
             setJoinError(jr.error ?? t('lobby.joinFail'));
           }
         }
-        if (jr.ok && onGoToGame && typeof window !== 'undefined' && window.innerWidth <= 1024) {
-          onGoToGame();
-        }
+        /* waiting → экран комнаты; playing → эффект status→onGoToGame. Не прыгаем на стол с mobile-join. */
       }
     } catch (e) {
       setJoinError(e instanceof Error ? e.message : String(e) || t('lobby.joinNet'));
@@ -449,15 +463,19 @@ export function LobbyScreen({
   };
 
   useEffect(() => {
+    if (autoJoinDismissed) return;
     if (!guestFromHostLink || !tryAutoJoin || !initialJoinCode?.trim()) return;
     if (!playerName.trim() || inRoom || autoJoinStartedRef.current) return;
     autoJoinStartedRef.current = true;
     setAutoJoining(true);
-    const t = window.setTimeout(() => {
-      void runJoinRoom();
-    }, 700);
-    return () => window.clearTimeout(t);
-  }, [guestFromHostLink, tryAutoJoin, initialJoinCode, playerName, inRoom]);
+    void runJoinRoom();
+  }, [guestFromHostLink, tryAutoJoin, initialJoinCode, playerName, inRoom, autoJoinDismissed]);
+
+  const dismissJoinInvite = useCallback(() => {
+    setAutoJoinDismissed(true);
+    autoJoinStartedRef.current = true;
+    onClearJoinInvite?.();
+  }, [onClearJoinInvite]);
 
   const handleResumeLastFromLobby = async () => {
     setResumeLastBusy(true);
@@ -482,6 +500,7 @@ export function LobbyScreen({
 
   const handleLeaveRoomConfirm = async () => {
     setShowLeaveConfirm(false);
+    dismissJoinInvite();
     await leaveRoom();
   };
 
@@ -489,37 +508,58 @@ export function LobbyScreen({
     if (stopRememberBusy) return;
     setStopRememberBusy(true);
     try {
+      dismissJoinInvite();
       await stopAutoRestoreForCurrentRoom();
+      setActionToast({ kind: 'ok', text: t('lobby.forgetDone') });
     } finally {
       setStopRememberBusy(false);
     }
   };
 
-  /** При «Поделиться» и «Скопировать код» отправляем только код комнаты, без ссылки. */
-  const handleShare = async () => {
-    if (!roomCode) return;
-    if (typeof navigator !== 'undefined' && navigator.share) {
-      try {
-        await navigator.share({
-          title: t('lobby.shareTitle'),
-          text: roomCode,
-        });
-      } catch (e) {
-        if ((e as Error).name !== 'AbortError') copyCodeToClipboard();
-      }
-    } else {
-      copyCodeToClipboard();
+  const copyTextFallback = (text: string): boolean => {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return ok;
+    } catch {
+      return false;
     }
   };
 
-  function copyCodeToClipboard() {
+  const flashCopied = () => {
+    setShareCopied(true);
+    window.setTimeout(() => setShareCopied(false), 2000);
+  };
+
+  /** «Поделиться» — стильный sheet с мессенджерами; «Скопировать» — только clipboard. */
+  const handleShare = () => {
     if (!roomCode) return;
-    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(roomCode).then(() => {
-        setShareCopied(true);
-        setTimeout(() => setShareCopied(false), 2000);
-      });
+    setShareSheetOpen(true);
+  };
+
+  async function copyCodeToClipboard() {
+    if (!roomCode) return;
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(roomCode);
+        flashCopied();
+        return;
+      }
+    } catch {
+      /* insecure context / permission — fallback ниже */
     }
+    if (copyTextFallback(roomCode)) {
+      flashCopied();
+      return;
+    }
+    setActionToast({ kind: 'err', text: t('lobby.copyFail') });
   }
 
   if (!user && !lanWs) {
@@ -552,36 +592,120 @@ export function LobbyScreen({
     );
   }
 
+  const renderRoomAcctBanner = () => (
+    <div
+      className={[
+        'lobby-screen__acct-banner',
+        user?.id ? 'lobby-screen__acct-banner--in' : 'lobby-screen__acct-banner--out',
+      ].join(' ')}
+      role="status"
+    >
+      {user?.id ? (
+        <p className="lobby-screen__acct-banner-title">
+          {t('lobby.guestAcctIn', {
+            who: user.email?.replace(/@.*$/, '') || playerName.trim() || t('lobby.identityAccount'),
+          })}
+        </p>
+      ) : (
+        <>
+          <p className="lobby-screen__acct-banner-title">{t('lobby.guestAcctOut')}</p>
+          {onOpenAccount ? (
+            <button
+              type="button"
+              className="lobby-screen__acct-banner-cta"
+              onClick={() => onOpenAccount()}
+            >
+              {t('lobby.guestAcctSignIn')}
+            </button>
+          ) : null}
+        </>
+      )}
+    </div>
+  );
+
+  const renderRoomProfileChip = () =>
+    onEditProfile ? (
+      <button
+        type="button"
+        className="lobby-room-profile-chip"
+        onClick={onEditProfile}
+        aria-label={t('lobby.editProfile')}
+      >
+        <span className="lobby-room-profile-chip__avatar">
+          <PlayerAvatar
+            name={playerName}
+            avatarDataUrl={avatarDataUrl}
+            avatarBgColor={avatarBgColor}
+            sizePx={36}
+          />
+        </span>
+        <span className="lobby-room-profile-chip__text">
+          <span className="lobby-room-profile-chip__label">{t('lobby.profileChip')}</span>
+          <span className="lobby-room-profile-chip__name">{playerName}</span>
+        </span>
+        <svg className="lobby-room-profile-chip__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden>
+          <path d="M9 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+    ) : null;
+
+  /** Автовход по QR/ссылке: только «Подключаем…», без мигания экрана-приглашения. */
+  if (guestFromHostLink && tryAutoJoin && !autoJoinDismissed && !inRoom && !joinError) {
+    return (
+      <div className="lobby-screen lobby-screen--room lobby-screen--joining">
+        <div className="lobby-screen__stack lobby-screen__stack--room">
+          {renderRoomAcctBanner()}
+          <p className="lobby-screen__joining-pulse" aria-hidden>
+            <span />
+            <span />
+            <span />
+          </p>
+          <h1 className="lobby-screen__title lobby-screen__title--room">{t('lobby.connecting')}</h1>
+          {(initialJoinCode ?? joinCode).trim() ? (
+            <p className="lobby-screen__code-value lobby-screen__code-value--joining">
+              {(initialJoinCode ?? joinCode).trim().toUpperCase()}
+            </p>
+          ) : null}
+          <button type="button" className={lobbyBtnClass('ghost')} onClick={onBack}>
+            {t('common.backToMenu')}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (inRoom) {
     return (
       <>
-        <div className="lobby-screen">
-          <div className="lobby-screen__stack">
-          <h1 className="lobby-screen__title lobby-screen__title--room">{t('lobby.roomTitle')}</h1>
-          <p className="lobby-screen__room-desc">
-            {isCaptain
-              ? lanWs
-                ? t('lobby.captainLan')
-                : t('lobby.captainCloud')
-              : captainSlot?.displayName
-                ? t('lobby.waitCaptain', { name: captainSlot.displayName })
-                : t('lobby.waitPlayers')}
-          </p>
-          <p className="lobby-screen__room-mode">
-            {settlementModeBadgeLabel(settlementMode, buyIn)}
-          </p>
+        <div className="lobby-screen lobby-screen--room">
+          <div className="lobby-screen__stack lobby-screen__stack--room">
+          {renderRoomAcctBanner()}
+          <header className="lobby-room-hero">
+            <p className="lobby-room-hero__eyebrow">{t('lobby.roomEyebrow')}</p>
+            <h1 className="lobby-screen__title lobby-screen__title--room">{t('lobby.roomTitle')}</h1>
+            <p className="lobby-screen__room-desc">
+              {isCaptain
+                ? lanWs
+                  ? t('lobby.captainLan')
+                  : t('lobby.captainCloud')
+                : captainSlot?.displayName
+                  ? t('lobby.waitCaptain', { name: captainSlot.displayName })
+                  : t('lobby.waitPlayers')}
+            </p>
+            <p className="lobby-screen__room-mode">
+              {settlementModeBadgeLabel(settlementMode, buyIn)}
+            </p>
+            {renderRoomProfileChip()}
+          </header>
           {roomCode && (
-            <div style={{ textAlign: 'center' }}>
+            <div className="lobby-room-code-card">
               <p className="lobby-screen__code-label">{t('lobby.roomCode')}</p>
               <p className="lobby-screen__code-value">{roomCode}</p>
-              <p className="lobby-screen__code-hint">
-                {t('lobby.roomCodeStay')}
-              </p>
               <p className="lobby-screen__code-hint lobby-screen__code-hint--dim">
                 {t('lobby.othersEnter')}
               </p>
-              <div className="lobby-btn-row" style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap', justifyContent: 'center', maxWidth: 280 }}>
-                <button type="button" className={lobbyBtnClass('secondary', 'lobby-btn--grow')} onClick={copyCodeToClipboard}>
+              <div className="lobby-btn-row lobby-room-code-card__actions">
+                <button type="button" className={lobbyBtnClass('secondary', 'lobby-btn--grow')} onClick={() => void copyCodeToClipboard()}>
                   {shareCopied ? t('lobby.copied') : t('lobby.copyCode')}
                 </button>
                 <button type="button" className={lobbyBtnClass('primary', 'lobby-btn--grow')} onClick={handleShare}>
@@ -590,24 +714,55 @@ export function LobbyScreen({
               </div>
             </div>
           )}
-          <div style={{ width: '100%', maxWidth: 280 }}>
+          <div className="lobby-room-players">
             <p className="lobby-screen__players-label">
               {t('lobby.playersCount', { n: humanSlots.length, max: maxPlayers })}
             </p>
             <ul className="lobby-screen__players-list">
-              {humanSlots.map((s) => (
-                <li key={s.slotIndex}>
-                  {s.displayName}
-                  {s.shortLabel ? ` (${s.shortLabel})` : ''}
-                  {s.slotIndex === myServerIndex && t('lobby.youSuffix')}
-                  {s.slotIndex === 0 && t('lobby.captainSuffix')}
-                </li>
-              ))}
+              {humanSlots.map((s) => {
+                const seatTone = (s.slotIndex % 3) as 0 | 1 | 2;
+                return (
+                  <li
+                    key={s.slotIndex}
+                    className={[
+                      'lobby-screen__player-row',
+                      `lobby-screen__player-row--tone${seatTone}`,
+                      s.slotIndex === myServerIndex ? 'is-you' : '',
+                      s.slotIndex === 0 ? 'is-captain' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                  >
+                    <span className="lobby-screen__player-seat" aria-hidden>
+                      {s.slotIndex + 1}
+                    </span>
+                    <span className="lobby-screen__player-name">
+                      {s.displayName}
+                      {s.shortLabel ? (
+                        <span className="lobby-screen__player-short"> ({s.shortLabel})</span>
+                      ) : null}
+                    </span>
+                    <span className="lobby-screen__player-tags">
+                      {s.slotIndex === myServerIndex ? (
+                        <span className="lobby-screen__player-tag lobby-screen__player-tag--you">
+                          {t('lobby.youTag')}
+                        </span>
+                      ) : null}
+                      {s.slotIndex === 0 ? (
+                        <span className="lobby-screen__player-tag lobby-screen__player-tag--cap">
+                          {t('lobby.captainTag')}
+                        </span>
+                      ) : null}
+                    </span>
+                  </li>
+                );
+              })}
             </ul>
           </div>
           {error && (
             <p className="lobby-screen__error-inline">{error}</p>
           )}
+          <div className="lobby-room-actions">
           {isCaptain && (
             <button
               type="button"
@@ -629,11 +784,6 @@ export function LobbyScreen({
           >
             {isCaptain ? t('lobby.openTableEarly') : t('lobby.enterGame')}
           </button>
-          {onEditProfile && (
-            <button type="button" className={lobbyBtnClass('secondary')} onClick={onEditProfile}>
-              {t('lobby.selfie')}
-            </button>
-          )}
           <button type="button" className={lobbyBtnClass('secondary')} onClick={handleLeaveRoomClick}>
             {t('lobby.leaveRoom')}
           </button>
@@ -647,9 +797,21 @@ export function LobbyScreen({
             {stopRememberBusy ? t('lobby.forgetting') : t('lobby.forgetRoom')}
           </button>
           </div>
+          </div>
         {leftPlayerToast && (
           <div role="status" className="lobby-screen__toast">
             {t('lobby.playerLeft', { name: leftPlayerToast })}
+          </div>
+        )}
+        {actionToast && (
+          <div
+            role="status"
+            className={[
+              'lobby-screen__toast',
+              actionToast.kind === 'ok' ? 'lobby-screen__toast--ok' : 'lobby-screen__toast--err',
+            ].join(' ')}
+          >
+            {actionToast.text}
           </div>
         )}
         {showLeaveConfirm && (
@@ -686,6 +848,17 @@ export function LobbyScreen({
           </div>
         )}
         </div>
+        <LobbyShareSheet
+          open={shareSheetOpen}
+          roomCode={roomCode ?? ''}
+          shareUrl={buildLobbyShareUrl(roomCode ?? '')}
+          onClose={() => setShareSheetOpen(false)}
+          onCopied={() => {
+            setShareCopied(true);
+            window.setTimeout(() => setShareCopied(false), 2000);
+          }}
+          onCopyFail={() => setActionToast({ kind: 'err', text: t('lobby.copyFail') })}
+        />
       </>
     );
   }
@@ -756,13 +929,10 @@ export function LobbyScreen({
           </p>
         )
       )}
-      {guestFromHostLink && (
-        <p className="lobby-screen__muted">
-          {autoJoining || joining
-            ? t('lobby.connecting')
-            : t('lobby.guestJoinHint')}
-        </p>
-      )}
+      {guestFromHostLink && (autoJoining || joining) ? (
+        <p className="lobby-screen__muted">{t('lobby.connecting')}</p>
+      ) : null}
+      {guestFromHostLink ? renderRoomAcctBanner() : null}
       {guestFromHostLink ? (
         <div className="lobby-screen__identity-wrap">{renderLobbyIdentity(false)}</div>
       ) : null}
@@ -786,6 +956,11 @@ export function LobbyScreen({
             expanded={showCreatePanel}
             disabled={creating}
             onClick={() => {
+              if (!user?.id) {
+                setJoinError(t('lobby.createNeedAuth'));
+                onOpenAccount?.();
+                return;
+              }
               setShowCreatePanel((open) => !open);
               setJoinError(null);
             }}
@@ -931,6 +1106,17 @@ export function LobbyScreen({
         </div>
         </div>
       </div>
+      {actionToast && (
+        <div
+          role="status"
+          className={[
+            'lobby-screen__toast',
+            actionToast.kind === 'ok' ? 'lobby-screen__toast--ok' : 'lobby-screen__toast--err',
+          ].join(' ')}
+        >
+          {actionToast.text}
+        </div>
+      )}
     </div>
   );
 }

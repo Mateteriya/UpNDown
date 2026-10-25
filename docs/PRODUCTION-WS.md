@@ -5,7 +5,17 @@
 
 Домашний LAN (`npm run server:dev`, панель `/host`) — другой профиль, его этот документ не заменяет.
 
-Полный ориентир продукта: [PLAN-DALEE.md](./PLAN-DALEE.md). Overlay-пример домена: [deploy/hosts/starkey.env.example](../deploy/hosts/starkey.env.example).
+| Канон продукта | |
+|----------------|--|
+| Публичный WS | **`wss://game.up2down.online`** |
+| Handoff техдиру (единственный файл действий) | [TECH-DIRECTOR-WS-1PAGE.md](./TECH-DIRECTOR-WS-1PAGE.md) |
+| Секреты (владелец) | [WS-SECRETS-MEMO.md](./WS-SECRETS-MEMO.md) |
+| Ветка деплоя | **`main`** |
+| Локальный затвор | `npm run server:prod-gate-local` |
+
+Полный ориентир продукта: [PLAN-DALEE.md](./PLAN-DALEE.md).  
+Overlay: [deploy/hosts/game.up2down.online.env.example](../deploy/hosts/game.up2down.online.env.example).  
+Старый path-пример на чужом домене: [deploy/hosts/starkey.env.example](../deploy/hosts/starkey.env.example) — только если временно нет DNS на `game`.
 
 ---
 

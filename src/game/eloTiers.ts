@@ -1,6 +1,9 @@
 /**
  * Клиентская таблица уровней ELO (open ladder).
  * Не требует миграций — отображение поверх player_ratings.elo.
+ *
+ * Старт в продукте = 1000. Пороги выровнены (~120–160 ELO на тир),
+ * без «ямы» новичок→любитель на 900 пунктов.
  */
 
 export type EloTierId =
@@ -20,15 +23,15 @@ export interface EloTierDef {
   maxElo: number | null;
 }
 
-/** Старт ELO в продукте = 1000. */
+/** Старт ELO в продукте = 1000 → тир «Конкурент» (regular). */
 export const ELO_TIERS: readonly EloTierDef[] = [
-  { id: 'novice', minElo: 0, maxElo: 900 },
-  { id: 'amateur', minElo: 900, maxElo: 1000 },
-  { id: 'regular', minElo: 1000, maxElo: 1100 },
-  { id: 'adept', minElo: 1100, maxElo: 1200 },
-  { id: 'expert', minElo: 1200, maxElo: 1350 },
-  { id: 'master', minElo: 1350, maxElo: 1500 },
-  { id: 'legend', minElo: 1500, maxElo: null },
+  { id: 'novice', minElo: 0, maxElo: 880 },
+  { id: 'amateur', minElo: 880, maxElo: 1000 },
+  { id: 'regular', minElo: 1000, maxElo: 1120 },
+  { id: 'adept', minElo: 1120, maxElo: 1240 },
+  { id: 'expert', minElo: 1240, maxElo: 1380 },
+  { id: 'master', minElo: 1380, maxElo: 1540 },
+  { id: 'legend', minElo: 1540, maxElo: null },
 ] as const;
 
 export function eloTierFor(elo: number): EloTierDef {

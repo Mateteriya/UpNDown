@@ -3,13 +3,14 @@
  * Стиль — стекло / Orbitron, как ПК-кабинет.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { isAuthNetworkError, isAuthStorageFullError } from '../lib/authErrors';
 import {
+  OAUTH_LINE,
   OAUTH_VKID,
   OAUTH_YANDEX,
-  isVkidOAuthAvailableHere,
+  listVisibleOAuthProviders,
   type AppOAuthProvider,
 } from '../lib/oauthProviders';
 import { useT, type MsgKey, type TFunc } from '../i18n';
@@ -77,6 +78,22 @@ const VkIcon = () => (
   </svg>
 );
 
+const AppleIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+    <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
+  </svg>
+);
+
+const LineIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden>
+    <rect width="24" height="24" rx="6" fill="#06C755" />
+    <path
+      fill="#fff"
+      d="M12 5.5c-3.87 0-7 2.54-7 5.66 0 2.8 2.48 5.15 5.83 5.58.23.05.54.15.62.35.07.18.05.46.02.64l-.1.61c-.03.18-.14.7.61.38 1.01-.42 5.45-3.21 7.44-5.5C20.7 11.4 19.5 5.5 12 5.5zm-3.3 7.6H7.5V9.4h1.2v3.7zm2.1 0h-1.15l-.02-3.7h1.17v2.55l1.9-2.55h1.25l-1.95 2.55 2.1 2.7h-1.35l-1.7-2.25-.35.45v1.8zm4.35 0h-1.15V9.4h1.15v3.7zm3.05 0h-2.55V9.4h2.55v.95h-1.4v.55h1.3v.9h-1.3v.55h1.4v.95z"
+    />
+  </svg>
+);
+
 const PENDING_NAME_KEY_PREFIX = 'updown_pending_name_';
 
 export function AuthModal({ mode, onClose, onSwitchMode }: AuthModalProps) {
@@ -92,12 +109,36 @@ export function AuthModal({ mode, onClose, onSwitchMode }: AuthModalProps) {
   const [oauthLoading, setOauthLoading] = useState<string | null>(null);
   const errorRef = useRef<HTMLParagraphElement | null>(null);
   const submittingRef = useRef(false);
-  /** VK ID · Mail.ru только на публичном домене (не LAN / localhost). */
-  const showVkid = isVkidOAuthAvailableHere();
+  const oauthProviders = listVisibleOAuthProviders();
+
+  const ignoreBackdropUntilRef = useRef(0);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        onClose();
+        return;
+      }
+      /**
+       * Edge/Chrome: Backspace в пустом INPUT = history.back() → popstate → «Главная»,
+       * модалка закрывается. Блокируем навигацию, пока открыт auth.
+       */
+      if (e.key !== 'Backspace' && e.key !== 'BrowserBack') return;
+      const el = e.target as HTMLElement | null;
+      const tag = el?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || el?.isContentEditable) {
+        if (tag === 'INPUT' || tag === 'TEXTAREA') {
+          const input = el as HTMLInputElement | HTMLTextAreaElement;
+          const start = input.selectionStart ?? 0;
+          const end = input.selectionEnd ?? 0;
+          /* Каретка в начале / пустое поле: Backspace не меняет текст, но Edge уходит «назад». */
+          if (e.key === 'Backspace' && start === 0 && end === 0) {
+            e.preventDefault();
+          }
+        }
+        return;
+      }
+      e.preventDefault();
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
@@ -108,16 +149,63 @@ export function AuthModal({ mode, onClose, onSwitchMode }: AuthModalProps) {
     errorRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }, [error]);
 
+  const markFieldBlur = () => {
+    /* После blur с поля клавиатура на мобиле двигает вёрстку — клик часто попадает в backdrop. */
+    ignoreBackdropUntilRef.current = Date.now() + 450;
+  };
+
+  const onBackdropClick = (e: ReactMouseEvent<HTMLDivElement>) => {
+    if (e.target !== e.currentTarget) return;
+    if (Date.now() < ignoreBackdropUntilRef.current) return;
+    onClose();
+  };
+
   const handleOAuth = async (provider: AppOAuthProvider) => {
-    if (!configured) return;
+    if (!configured || oauthLoading) return;
     setError(null);
     setOauthLoading(provider);
     try {
       const { error: authError } = await signInWithOAuth(provider);
-      if (authError) setError(authErrorText(authError, t, 'auth.loginError'));
-    } finally {
+      if (authError) {
+        setError(authErrorText(authError, t, 'auth.loginError'));
+        setOauthLoading(null);
+        return;
+      }
+      /* Успех → уход на IdP; спиннер/баннер оставляем до смены страницы. */
+    } catch (e) {
+      setError(authErrorText(e instanceof Error ? e : null, t, 'auth.loginError'));
       setOauthLoading(null);
     }
+  };
+
+  const oauthProviderLabel = (provider: string) => {
+    if (provider === OAUTH_YANDEX) return t('auth.oauthYandex');
+    if (provider === OAUTH_VKID) return t('auth.oauthVkid');
+    if (provider === OAUTH_LINE) return t('auth.oauthLine');
+    if (provider === 'apple') return t('auth.oauthApple');
+    if (provider === 'google') return 'Google';
+    if (provider === 'github') return t('auth.oauthGithub');
+    return provider;
+  };
+
+  const oauthBtnClass = (provider: AppOAuthProvider) => {
+    if (provider === OAUTH_YANDEX) return 'lk-modal__oauth-btn--yandex';
+    if (provider === OAUTH_VKID) return 'lk-modal__oauth-btn--vkid';
+    if (provider === OAUTH_LINE) return 'lk-modal__oauth-btn--line';
+    if (provider === 'apple') return 'lk-modal__oauth-btn--apple';
+    if (provider === 'google') return 'lk-modal__oauth-btn--google';
+    if (provider === 'github') return 'lk-modal__oauth-btn--github';
+    return '';
+  };
+
+  const oauthIcon = (provider: AppOAuthProvider) => {
+    if (provider === OAUTH_YANDEX) return <YandexIcon />;
+    if (provider === OAUTH_VKID) return <VkIcon />;
+    if (provider === OAUTH_LINE) return <LineIcon />;
+    if (provider === 'apple') return <AppleIcon />;
+    if (provider === 'google') return <GoogleIcon />;
+    if (provider === 'github') return <GitHubIcon />;
+    return null;
   };
 
   const handleSubmit = async (e?: { preventDefault?: () => void }) => {
@@ -167,17 +255,30 @@ export function AuthModal({ mode, onClose, onSwitchMode }: AuthModalProps) {
       }
     }
     try {
-      const { error: authError } =
-        mode === 'login' ? await signIn(em, password) : await signUp(em, password);
-      if (authError) {
-        setError(authErrorText(authError, t, 'auth.authError'));
+      if (mode === 'login') {
+        const { error: authError } = await signIn(em, password);
+        if (authError) {
+          setError(authErrorText(authError, t, 'auth.authError'));
+          return;
+        }
+        onClose();
         return;
       }
-      if (mode === 'login') {
-        onClose();
-      } else {
-        setSuccessMessage(em ? t('auth.checkEmail', { email: em }) : t('auth.checkEmailNoAddr'));
+      const { error: authError, needsEmailConfirm } = await signUp(em, password);
+      if (authError) {
+        const msg = String(authError.message || '');
+        if (/уже зарегистрирован|already registered|already been registered/i.test(msg)) {
+          setError(t('auth.alreadyRegistered'));
+        } else {
+          setError(authErrorText(authError, t, 'auth.authError'));
+        }
+        return;
       }
+      if (needsEmailConfirm === false) {
+        setSuccessMessage(t('auth.registerDoneNoMail'));
+        return;
+      }
+      setSuccessMessage(em ? t('auth.checkEmail', { email: em }) : t('auth.checkEmailNoAddr'));
     } finally {
       submittingRef.current = false;
       setLoading(false);
@@ -187,19 +288,19 @@ export function AuthModal({ mode, onClose, onSwitchMode }: AuthModalProps) {
   if (successMessage) {
     return (
       <div
-        className="lk-modal"
-        onClick={(e) => e.target === e.currentTarget && onClose()}
+        className="lk-modal lk-modal--auth"
+        onClick={onBackdropClick}
         role="dialog"
         aria-modal="true"
       >
-        <div className="lk-modal__panel" onClick={(e) => e.stopPropagation()}>
+        <div className="lk-modal__panel lk-modal__panel--auth" onClick={(e) => e.stopPropagation()}>
           <p className="lk-modal__success-text">{successMessage}</p>
-          <p className="lk-modal__hint lk-modal__hint--center" style={{ marginBottom: 16 }}>
+          <p className="lk-modal__hint lk-modal__hint--center lk-modal__hint--auth-success">
             {configured
               ? t('auth.afterConfirm')
               : t('auth.playOffline')}
           </p>
-          <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <div className="lk-modal__success-actions">
             <button
               type="button"
               className="lk-modal__ghost-btn"
@@ -218,161 +319,189 @@ export function AuthModal({ mode, onClose, onSwitchMode }: AuthModalProps) {
 
   return (
     <div
-      className={`lk-modal${mode === 'register' ? ' lk-modal--top' : ''}`}
-      onClick={(e) => e.target === e.currentTarget && onClose()}
+      className={`lk-modal lk-modal--auth${mode === 'register' ? ' lk-modal--top' : ''}`}
+      onClick={onBackdropClick}
       role="dialog"
       aria-modal="true"
       aria-labelledby="auth-modal-title"
     >
-      <div className="lk-modal__panel" onClick={(e) => e.stopPropagation()}>
-        <div className="lk-modal__head" style={{ marginBottom: 12 }}>
+      <div
+        className={`lk-modal__panel lk-modal__panel--auth${oauthLoading ? ' lk-modal__panel--oauth-busy' : ''}`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="lk-modal__head lk-modal__head--auth">
           <h2 id="auth-modal-title" className="lk-modal__title">
             {mode === 'login' ? t('auth.login') : t('auth.register')}
           </h2>
-          <button type="button" className="lk-modal__close" onClick={onClose} aria-label={t('common.close')}>
+          <button
+            type="button"
+            className="lk-modal__close"
+            onClick={onClose}
+            aria-label={t('common.close')}
+            disabled={!!oauthLoading}
+          >
             ×
           </button>
         </div>
 
-        <div className="lk-modal__oauth">
-          <button
-            type="button"
-            className="lk-modal__oauth-btn lk-modal__oauth-btn--yandex"
-            onClick={() => void handleOAuth(OAUTH_YANDEX)}
-            disabled={!configured || !!oauthLoading || loading}
-          >
-            <YandexIcon />
-            {oauthLoading === OAUTH_YANDEX ? '…' : t('auth.oauthYandex')}
-          </button>
-          {showVkid ? (
-            <button
-              type="button"
-              className="lk-modal__oauth-btn lk-modal__oauth-btn--vkid"
-              onClick={() => void handleOAuth(OAUTH_VKID)}
-              disabled={!configured || !!oauthLoading || loading}
-              title={t('auth.oauthVkidHint')}
+        {oauthLoading ? (
+          <div className="lk-modal__oauth-pending" role="status" aria-live="polite">
+            <span className="lk-modal__oauth-pending__pulse" aria-hidden />
+            <p className="lk-modal__oauth-pending__title">
+              {t('auth.oauthPending', { provider: oauthProviderLabel(oauthLoading) })}
+            </p>
+            <p className="lk-modal__oauth-pending__hint">{t('auth.oauthPendingHint')}</p>
+          </div>
+        ) : null}
+
+        <div className="lk-modal__auth-cols">
+          <div className="lk-modal__auth-col lk-modal__auth-col--oauth">
+            <div className="lk-modal__oauth">
+              {oauthProviders.map((provider) => (
+                <button
+                  key={provider}
+                  type="button"
+                  className={[
+                    'lk-modal__oauth-btn',
+                    oauthBtnClass(provider),
+                    oauthLoading === provider ? 'lk-modal__oauth-btn--pending' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  onClick={() => void handleOAuth(provider)}
+                  disabled={!configured || !!oauthLoading || loading}
+                  title={provider === OAUTH_VKID ? t('auth.oauthVkidHint') : undefined}
+                  aria-busy={oauthLoading === provider}
+                >
+                  {oauthIcon(provider)}
+                  {oauthLoading === provider
+                    ? t('auth.oauthRedirecting')
+                    : oauthProviderLabel(provider)}
+                </button>
+              ))}
+            </div>
+
+            <div className="lk-modal__divider">{t('auth.orEmail')}</div>
+          </div>
+
+          <div className="lk-modal__auth-col lk-modal__auth-col--form">
+            {/* noValidate: на Android WebView нативная проверка email часто глотает submit без сообщения */}
+            <form
+              className="lk-modal__form"
+              onSubmit={(e) => void handleSubmit(e)}
+              noValidate
+              autoComplete="on"
+              method="post"
+              action="#"
             >
-              <VkIcon />
-              {oauthLoading === OAUTH_VKID ? '…' : t('auth.oauthVkid')}
-            </button>
-          ) : null}
-          <button
-            type="button"
-            className="lk-modal__oauth-btn lk-modal__oauth-btn--google"
-            onClick={() => void handleOAuth('google')}
-            disabled={!configured || !!oauthLoading || loading}
-          >
-            <GoogleIcon />
-            {oauthLoading === 'google' ? '…' : 'Google'}
-          </button>
-          <button
-            type="button"
-            className="lk-modal__oauth-btn lk-modal__oauth-btn--github"
-            onClick={() => void handleOAuth('github')}
-            disabled={!configured || !!oauthLoading || loading}
-          >
-            <GitHubIcon />
-            {oauthLoading === 'github' ? '…' : 'GitHub'}
-          </button>
-        </div>
-
-        <div className="lk-modal__divider">{t('auth.orEmail')}</div>
-
-        {/* noValidate: на Android WebView нативная проверка email часто глотает submit без сообщения */}
-        <form className="lk-modal__form" onSubmit={(e) => void handleSubmit(e)} noValidate>
-          <div className="lk-modal__field">
-            <label className="lk-modal__label" htmlFor="auth-email">
-              Email
-            </label>
-            <input
-              id="auth-email"
-              className="lk-modal__input"
-              type="email"
-              inputMode="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
-              placeholder="you@example.com"
-            />
-          </div>
-          <div className="lk-modal__field">
-            <label className="lk-modal__label" htmlFor="auth-password">
-              {t('auth.password')}
-            </label>
-            <input
-              id="auth-password"
-              className="lk-modal__input"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-              placeholder={t('auth.passwordPlaceholder', { n: MIN_PASSWORD_LENGTH })}
-            />
-          </div>
-          {mode === 'register' ? (
-            <>
               <div className="lk-modal__field">
-                <label className="lk-modal__label" htmlFor="auth-display-name">
-                  {t('auth.nickLabel')} <span className="lk-modal__label-note">{t('auth.nickNote')}</span>
+                <label className="lk-modal__label" htmlFor="auth-email">
+                  Email
                 </label>
                 <input
-                  id="auth-display-name"
+                  id="auth-email"
+                  name="email"
                   className="lk-modal__input"
-                  type="text"
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  autoComplete="username"
-                  placeholder={t('auth.nickPlaceholder')}
-                  maxLength={17}
+                  type="email"
+                  inputMode="email"
+                  enterKeyHint="next"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  onBlur={markFieldBlur}
+                  autoComplete={mode === 'login' ? 'username' : 'email'}
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  placeholder="you@example.com"
                 />
               </div>
               <div className="lk-modal__field">
-                <label className="lk-modal__label" htmlFor="auth-confirm">
-                  {t('auth.confirmPassword')}
+                <label className="lk-modal__label" htmlFor="auth-password">
+                  {t('auth.password')}
                 </label>
                 <input
-                  id="auth-confirm"
+                  id="auth-password"
+                  name="password"
                   className="lk-modal__input"
                   type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  autoComplete="new-password"
-                  placeholder={t('auth.confirmPlaceholder')}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onBlur={markFieldBlur}
+                  autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                  placeholder={t('auth.passwordPlaceholder', { n: MIN_PASSWORD_LENGTH })}
                 />
               </div>
-            </>
-          ) : null}
-          {error ? (
-            <p className="lk-modal__error" ref={errorRef} role="alert">
-              {error}
-            </p>
-          ) : null}
-          <button
-            type="button"
-            className="lk-modal__submit"
-            disabled={loading || !!oauthLoading}
-            onClick={() => void handleSubmit()}
-          >
-            {loading
-              ? mode === 'login'
-                ? t('auth.signingIn')
-                : t('auth.registering')
-              : mode === 'login'
-                ? t('auth.submitLogin')
-                : t('auth.submitRegister')}
-          </button>
-        </form>
+              {mode === 'register' ? (
+                <>
+                  <div className="lk-modal__field">
+                    <label className="lk-modal__label" htmlFor="auth-display-name">
+                      {t('auth.nickLabel')}{' '}
+                      <span className="lk-modal__label-note">{t('auth.nickNote')}</span>
+                    </label>
+                    <input
+                      id="auth-display-name"
+                      name="nickname"
+                      className="lk-modal__input"
+                      type="text"
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
+                      onBlur={markFieldBlur}
+                      autoComplete="nickname"
+                      placeholder={t('auth.nickPlaceholder')}
+                      maxLength={17}
+                    />
+                  </div>
+                  <div className="lk-modal__field">
+                    <label className="lk-modal__label" htmlFor="auth-confirm">
+                      {t('auth.confirmPassword')}
+                    </label>
+                    <input
+                      id="auth-confirm"
+                      name="password-confirm"
+                      className="lk-modal__input"
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      onBlur={markFieldBlur}
+                      autoComplete="new-password"
+                      placeholder={t('auth.confirmPlaceholder')}
+                    />
+                  </div>
+                </>
+              ) : null}
+              {error ? (
+                <p className="lk-modal__error" ref={errorRef} role="alert">
+                  {error}
+                </p>
+              ) : null}
+              <button
+                type="button"
+                className="lk-modal__submit"
+                disabled={loading || !!oauthLoading}
+                onClick={() => void handleSubmit()}
+              >
+                {loading
+                  ? mode === 'login'
+                    ? t('auth.signingIn')
+                    : t('auth.registering')
+                  : mode === 'login'
+                    ? t('auth.submitLogin')
+                    : t('auth.submitRegister')}
+              </button>
+            </form>
 
-        <p className="lk-modal__switch">
-          {mode === 'login' ? t('auth.noAccount') : t('auth.hasAccount')}
-          <button
-            type="button"
-            className="lk-modal__switch-btn"
-            onClick={() => onSwitchMode(mode === 'login' ? 'register' : 'login')}
-          >
-            {mode === 'login' ? t('auth.submitRegister') : t('auth.submitLogin')}
-          </button>
-        </p>
+            <p className="lk-modal__switch">
+              {mode === 'login' ? t('auth.noAccount') : t('auth.hasAccount')}
+              <button
+                type="button"
+                className="lk-modal__switch-btn"
+                onClick={() => onSwitchMode(mode === 'login' ? 'register' : 'login')}
+              >
+                {mode === 'login' ? t('auth.submitRegister') : t('auth.submitLogin')}
+              </button>
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );

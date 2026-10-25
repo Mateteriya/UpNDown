@@ -4,7 +4,8 @@
  */
 
 import type { DealResult } from '../game/GameEngine';
-import { FREE_FULL_DEAL_LIMIT, PREMIUM_HISTORY_ENABLED } from './productFlags';
+import { FREE_FULL_DEAL_LIMIT } from './productFlags';
+import { isPremiumEntitled } from './premiumEntitlement';
 
 /** Лёгкий срез: номер + очки (без bids/takens). */
 export type LightDealResult = {
@@ -17,8 +18,9 @@ export type LightDealResult = {
 
 export type GatedDealRow = DealResult | LightDealResult;
 
-export function isPremiumHistory(): boolean {
-  return PREMIUM_HISTORY_ENABLED;
+/** @deprecated предпочтительно isPremiumEntitled(userId) */
+export function isPremiumHistory(userId?: string | null): boolean {
+  return isPremiumEntitled(userId);
 }
 
 export function freeFullDealLimit(): number {
@@ -32,9 +34,9 @@ export function isFullDealRow(d: GatedDealRow): d is DealResult {
 /** Последние N раздач полные; более ранние — только points (и для уже сжатых в облаке). */
 export function gateDealHistoryForViewer(
   deals: readonly DealResult[],
-  opts?: { premium?: boolean; fullLimit?: number },
+  opts?: { premium?: boolean; fullLimit?: number; userId?: string | null },
 ): GatedDealRow[] {
-  const premium = opts?.premium ?? isPremiumHistory();
+  const premium = opts?.premium ?? isPremiumEntitled(opts?.userId);
   if (premium || deals.length === 0) return [...deals];
 
   const limit = opts?.fullLimit ?? freeFullDealLimit();

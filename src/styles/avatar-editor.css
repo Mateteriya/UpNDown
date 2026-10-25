@@ -955,6 +955,37 @@
   transform: translateX(-50%) translateY(2px) scale(0.96) !important;
 }
 
+/* Nudge: «сначала галочка» — пульс у ушка, без error-баннера внизу модалки */
+.avatar-editor-badge-plate
+  .avatar-editor-badge-plate__confirm.menu-capsule__name-plaque__confirm.avatar-editor-badge-plate__confirm--nudge {
+  animation: avatar-editor-badge-confirm-nudge 0.55s ease-in-out 0s 3 !important;
+  box-shadow:
+    0 4px 14px rgba(2, 6, 23, 0.45),
+    0 0 18px rgba(52, 211, 153, 0.7),
+    0 0 28px rgba(251, 191, 36, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22) !important;
+}
+
+@keyframes avatar-editor-badge-confirm-nudge {
+  0%,
+  100% {
+    transform: translateX(-50%) scale(1);
+  }
+  40% {
+    transform: translateX(-50%) translateY(1px) scale(1.14);
+  }
+  70% {
+    transform: translateX(-50%) scale(1.06);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .avatar-editor-badge-plate
+    .avatar-editor-badge-plate__confirm.menu-capsule__name-plaque__confirm.avatar-editor-badge-plate__confirm--nudge {
+    animation: none !important;
+  }
+}
+
 .avatar-editor-modal-card--desktop .avatar-editor-preview-ring {
   width: min(40vw, 178px) !important;
   height: min(40vw, 178px) !important;
@@ -3195,11 +3226,28 @@
   transform: scale(1.04) !important;
 }
 
+/* Все cosmic tip в редакторе — с переносом (не резать RU-строки) */
+.avatar-editor-modal-root .menu-capsule-cosmic-tip.game-table-tooltip-cosmic,
+.avatar-editor-modal .menu-capsule-cosmic-tip.game-table-tooltip-cosmic {
+  max-width: min(420px, calc(100vw - 24px)) !important;
+  box-sizing: border-box !important;
+  overflow: visible !important;
+}
+
+.avatar-editor-modal-root .menu-capsule-cosmic-tip__text.game-table-tooltip-cosmic-body-text,
+.avatar-editor-modal .menu-capsule-cosmic-tip__text.game-table-tooltip-cosmic-body-text {
+  display: block !important;
+  white-space: normal !important;
+  overflow-wrap: anywhere !important;
+  word-break: break-word !important;
+  max-width: 100% !important;
+}
+
 /* Компактный фирменный tip редактора — длинные RU-строки переносятся */
 .avatar-editor-glyph-tip.menu-capsule-cosmic-tip.game-table-tooltip-cosmic {
   padding: 8px 12px !important;
   width: max-content !important;
-  max-width: min(300px, calc(100vw - 20px)) !important;
+  max-width: min(420px, calc(100vw - 20px)) !important;
   border-radius: 10px !important;
   pointer-events: none !important;
   box-sizing: border-box !important;

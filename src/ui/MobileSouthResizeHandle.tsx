@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useT } from '../i18n';
 import {
   applyDealResultsStretchPx,
   dealResultsModalResizingRef,
@@ -28,24 +29,29 @@ type MobileSouthResizeHandleProps = {
   suppressTapGlow?: boolean;
 };
 
-const DEFAULT_ARIA_HINTS = {
-  downOnly: 'Можно потянуть только вниз, чтобы опустить панель',
-  upOnly: 'Можно потянуть только вверх, чтобы поднять панель',
-  both: 'Потяните вверх или вниз, чтобы изменить высоту панели',
-  none: 'Масштаб панели Юга',
-} as const;
-
 /** Капсула Down'n'Up — та же ручка, что у панели Юга (short-VH). */
 export function MobileSouthResizeHandle({
   stretchPx,
   stretchMaxPx,
   onStretchPxChange,
   visible = true,
-  ariaHints = DEFAULT_ARIA_HINTS,
+  ariaHints,
   handleClassName,
   capsuleVariant,
   suppressTapGlow = false,
 }: MobileSouthResizeHandleProps) {
+  const t = useT();
+  const defaultAriaHints = useMemo(
+    () => ({
+      downOnly: t('table.southPanelPullDown'),
+      upOnly: t('table.southPanelPullUp'),
+      both: t('table.southPanelPullBoth'),
+      none: t('table.southPanelScale'),
+    }),
+    [t],
+  );
+  const resolvedAriaHints = ariaHints ?? defaultAriaHints;
+
   const [tapGlow, setTapGlow] = useState(false);
   const stretchPxRef = useRef(stretchPx);
   const stretchMaxPxRef = useRef(stretchMaxPx);
@@ -454,12 +460,12 @@ export function MobileSouthResizeHandle({
             : '';
   const ariaHint =
     stretchHint === 'down-only'
-      ? ariaHints.downOnly
+      ? resolvedAriaHints.downOnly
       : stretchHint === 'up-only'
-        ? ariaHints.upOnly
+        ? resolvedAriaHints.upOnly
         : stretchHint === 'both'
-          ? ariaHints.both
-          : ariaHints.none;
+          ? resolvedAriaHints.both
+          : resolvedAriaHints.none;
   const showDownArrow = stretchHint !== 'up-only';
   const showUpArrow = stretchHint !== 'down-only';
   const showArrowGap = showDownArrow && showUpArrow;

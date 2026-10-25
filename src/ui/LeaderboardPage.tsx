@@ -1,10 +1,17 @@
 /**
- * Экран «Рейтинг»: ELO-лайт топ rated онлайн.
+ * Экран «Рейтинг»: ELO-лайт топ + публичный Зал славы.
  */
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { getLeaderboard, type LeaderboardResult } from '../lib/onlineGameSupabase';
+import {
+  getHallOfFame,
+  getLeaderboard,
+  type HallOfFameKind,
+  type HallOfFameResult,
+  type HallOfFameScope,
+  type LeaderboardResult,
+} from '../lib/onlineGameSupabase';
 import { CosmicCockpit, CosmicGlassClose } from './CosmicCockpit';
 import { formatYouName, getLocale, useT, type TFunc } from '../i18n';
 
@@ -29,10 +36,16 @@ function gamesLabel(n: number, tr: TFunc): string {
   return tr('rating.games');
 }
 
+type BoardTab = 'elo' | 'hof';
+
 export function LeaderboardPage({ onBack, onGoToMenu, onSignIn, onOpenAccount }: LeaderboardPageProps) {
   const t = useT();
   const { user, configured } = useAuth();
+  const [tab, setTab] = useState<BoardTab>('elo');
   const [data, setData] = useState<LeaderboardResult | null>(null);
+  const [hof, setHof] = useState<HallOfFameResult | null>(null);
+  const [hofKind, setHofKind] = useState<HallOfFameKind>('party_score');
+  const [hofScope, setHofScope] = useState<HallOfFameScope>('rated_online');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -69,6 +82,33 @@ export function LeaderboardPage({ onBack, onGoToMenu, onSignIn, onOpenAccount }:
     };
   }, [configured, user?.id, t]);
 
+  useEffect(() => {
+    if (tab !== 'hof' || !configured) return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const res = await getHallOfFame(hofKind, hofScope, 25);
+        if (!cancelled) setHof(res);
+      } catch {
+        if (!cancelled) {
+          setHof({
+            ok: false,
+            kind: hofKind,
+            scope: hofScope,
+            rows: [],
+            error: t('rating.loadFail'),
+          });
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [tab, configured, hofKind, hofScope, t]);
+
   const loggedIn = !!(configured && user?.id);
 
   return (
@@ -85,9 +125,30 @@ export function LeaderboardPage({ onBack, onGoToMenu, onSignIn, onOpenAccount }:
             <h1 className="leaderboard-page__title">{t('rating.title')}</h1>
             <p className="leaderboard-page__lead">{t('rating.lead')}</p>
 
+            <div className="leaderboard-page__tabs" role="tablist" aria-label={t('rating.title')}>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={tab === 'elo'}
+                className={['leaderboard-page__tab', tab === 'elo' ? 'is-active' : ''].filter(Boolean).join(' ')}
+                onClick={() => setTab('elo')}
+              >
+                ELO
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={tab === 'hof'}
+                className={['leaderboard-page__tab', tab === 'hof' ? 'is-active' : ''].filter(Boolean).join(' ')}
+                onClick={() => setTab('hof')}
+              >
+                {t('cabinet.hofTitle')}
+              </button>
+            </div>
+
             {!configured ? (
               <p className="leaderboard-page__empty">{t('rating.serverOff')}</p>
-            ) : !loggedIn ? (
+            ) : tab === 'elo' && !loggedIn ? (
               <div className="leaderboard-page__gate">
                 <p className="leaderboard-page__empty">{t('rating.signInLead')}</p>
                 {onSignIn ? (
@@ -99,13 +160,13 @@ export function LeaderboardPage({ onBack, onGoToMenu, onSignIn, onOpenAccount }:
               </div>
             ) : loading ? (
               <p className="leaderboard-page__empty">{t('rating.loading')}</p>
-            ) : data && !data.ok ? (
+            ) : tab === 'elo' && data && !data.ok ? (
               <p className="leaderboard-page__empty">
                 {data.error?.includes('updown_get_leaderboard') || data.error?.includes('does not exist')
                   ? t('rating.migration')
                   : data.error || t('rating.loadError')}
               </p>
-            ) : (
+            ) : tab === 'elo' ? (
               <>
                 {data?.me ? (
                   <div className="leaderboard-page__me">
@@ -166,6 +227,73 @@ export function LeaderboardPage({ onBack, onGoToMenu, onSignIn, onOpenAccount }:
                   )}
                 </ol>
               </>
+            ) : (
+              <div className="leaderboard-page__hof">
+                <p className="leaderboard-page__hof-eyebrow">{t('cabinet.hofEyebrow')}</p>
+                <div className="leaderboard-page__hof-filters">
+                  <label>
+                    <span className="visually-hidden">{t('cabinet.hofKindScore')}</span>
+                    <select
+                      value={hofKind}
+                      onChange={(e) => setHofKind(e.target.value as HallOfFameKind)}
+                    >
+                      <option value="party_score">{t('cabinet.hofKindScore')}</option>
+                      <option value="exact_deal">{t('cabinet.hofKindExact')}</option>
+                      <option value="perfect_party">{t('cabinet.hofKindPerfect')}</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span className="visually-hidden">{t('cabinet.hofScopeRated')}</span>
+                    <select
+                      value={hofScope}
+                      onChange={(e) => setHofScope(e.target.value as HallOfFameScope)}
+                    >
+                      <option value="rated_online">{t('cabinet.hofScopeRated')}</option>
+                      <option value="online_all">{t('cabinet.hofScopeOnline')}</option>
+                      <option value="offline_cloud">{t('cabinet.hofScopeOffline')}</option>
+                    </select>
+                  </label>
+                </div>
+                {hofScope === 'offline_cloud' ? (
+                  <p className="leaderboard-page__me-hint">{t('cabinet.hofOfflineNote')}</p>
+                ) : null}
+                {hof && !hof.ok ? (
+                  <p className="leaderboard-page__empty">
+                    {hof.error?.includes('does not exist')
+                      ? t('rating.migration')
+                      : hof.error || t('rating.loadError')}
+                  </p>
+                ) : (
+                  <ol className="leaderboard-page__list">
+                    {(hof?.rows ?? []).length === 0 ? (
+                      <li className="leaderboard-page__empty">{t('cabinet.hofEmpty')}</li>
+                    ) : (
+                      (hof?.rows ?? []).map((row) => {
+                        const isMe = row.user_id === user?.id;
+                        return (
+                          <li
+                            key={`${row.user_id}-${row.rank}-${row.created_at}`}
+                            className={[
+                              'leaderboard-page__row',
+                              isMe ? 'leaderboard-page__row--me' : '',
+                            ]
+                              .filter(Boolean)
+                              .join(' ')}
+                          >
+                            <span className="leaderboard-page__rank">#{row.rank}</span>
+                            <span className="leaderboard-page__name">{row.display_name}</span>
+                            <span className="leaderboard-page__elo">{row.value}</span>
+                            <span className="leaderboard-page__meta">
+                              {row.tier ? row.tier : row.kind}
+                              {row.source === 'offline' ? ` · ${t('cabinet.recordsSourceOffline')}` : ''}
+                            </span>
+                          </li>
+                        );
+                      })
+                    )}
+                  </ol>
+                )}
+              </div>
             )}
 
             {onOpenAccount ? (
@@ -174,10 +302,12 @@ export function LeaderboardPage({ onBack, onGoToMenu, onSignIn, onOpenAccount }:
               </button>
             ) : null}
 
-            <details className="leaderboard-page__how">
-              <summary>{t('rating.howElo')}</summary>
-              <p>{t('rating.howEloBody')}</p>
-            </details>
+            {tab === 'elo' ? (
+              <details className="leaderboard-page__how">
+                <summary>{t('rating.howElo')}</summary>
+                <p>{t('rating.howEloBody')}</p>
+              </details>
+            ) : null}
 
             <button type="button" className="leaderboard-page__home leaderboard-page__home--menu" onClick={onGoToMenu ?? onBack}>
               <span className="leaderboard-page__home-glow" aria-hidden />

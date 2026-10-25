@@ -1,0 +1,44 @@
+/**
+ * Display-шрифты стола / UI.
+ * Файлы: public/fonts/ForestSmooth.* , public/fonts/KappasPororoca.*
+ * Также подхватываются local() если установлены в ОС.
+ *
+ *  --font-forest-smooth  — мягкий display (legacy / отдельные акценты)
+ *  --font-pororoca       — блочный techno (бейджи, счётчики, кибер-акценты)
+ *  --font-south-name     — Юг ПК/планшет: читаемый футуристичный столбик имени
+ */
+
+@font-face {
+  font-family: 'ForestSmooth';
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: swap;
+  src:
+    local('ForestSmooth'),
+    local('Forest Smooth'),
+    url('/fonts/ForestSmooth.woff2') format('woff2'),
+    url('/fonts/ForestSmooth.ttf') format('truetype'),
+    url('/fonts/ForestSmooth.otf') format('opentype');
+}
+
+@font-face {
+  font-family: 'KappasPororoca';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src:
+    local("Kappa's Pororoca"),
+    local('Kappas Pororoca'),
+    local('KappasPororoca'),
+    url('/fonts/KappasPororoca.woff2') format('woff2'),
+    url('/fonts/KappasPororoca.ttf') format('truetype'),
+    url('/fonts/KappasPororoca.otf') format('opentype');
+}
+
+:root {
+  --font-forest-smooth: 'ForestSmooth', 'Nunito', 'Outfit', 'Exo 2', ui-sans-serif, system-ui,
+    sans-serif;
+  --font-pororoca: 'KappasPororoca', 'Exo 2', 'Outfit', ui-sans-serif, system-ui, sans-serif;
+  /* Exo 2 — геометричный, жирный, читаемый upright; Nunito как кириллический запас */
+  --font-south-name: 'Exo 2', 'Nunito', 'Outfit', ui-sans-serif, system-ui, sans-serif;
+}

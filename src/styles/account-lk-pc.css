@@ -3173,11 +3173,11 @@
     font: 600 0.72rem/1.15 'Orbitron', 'Exo 2', ui-sans-serif, system-ui, sans-serif !important;
     letter-spacing: 0.06em !important;
     text-transform: uppercase !important;
-    background-image: linear-gradient(115deg, #67e8f9 0%, #a78bfa 42%, #e879f9 78%, #fbbf24 100%) !important;
-    -webkit-background-clip: text !important;
-    background-clip: text !important;
-    color: transparent !important;
-    -webkit-text-fill-color: transparent !important;
+    background-image: none !important;
+    -webkit-background-clip: border-box !important;
+    background-clip: border-box !important;
+    color: #e9d5ff !important;
+    -webkit-text-fill-color: #e9d5ff !important;
   }
 
   .lk-page.lk-page--pc .stars-rewards .stars-hud__btn.stars-hud__wallet-btn,

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Up&amp;Down · VK · LAN</title>
+  <style>
+    body {
+      margin: 0;
+      min-height: 100dvh;
+      display: grid;
+      place-items: center;
+      font: 15px/1.45 system-ui, sans-serif;
+      background: #0b1220;
+      color: #e2e8f0;
+      padding: 24px;
+    }
+    .box { max-width: 28rem; text-align: center; }
+    a { color: #67e8f9; }
+    .err { color: #fca5a5; margin-top: 1rem; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <p id="msg">Переход в VK ID…</p>
+    <p class="err" id="err" hidden></p>
+  </div>
+  <script>
+    /**
+     * Старт VK OAuth с публичного домена (up2down.online).
+     * PKCE verifier живёт на ЭТОМ origin → state.ret = online auth-callback.
+     * LAN-адрес возврата кладём в sessionStorage; после exchange online
+     * auth-callback прыгает на LAN с #access_token.
+     *
+     * Почему не сразу на LAN: VK не принимает базовый домен = 192.168.* / localhost.
+     */
+    (function () {
+      var DEFAULT_CID = '54819532';
+      var PKCE_PREFIX = 'updown_vk_pkce_';
+      var LAN_FINAL_KEY = 'updown_vk_lan_final_ret';
+
+      function showErr(t) {
+        var e = document.getElementById('err');
+        var m = document.getElementById('msg');
+        if (m) m.textContent = 'Не удалось начать вход VK';
+        if (e) {
+          e.hidden = false;
+          e.textContent = t;
+        }
+      }
+
+      function b64url(bytes) {
+        var u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+        var bin = '';
+        for (var i = 0; i < u8.length; i++) bin += String.fromCharCode(u8[i]);
+        return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+      }
+
+      function randomVerifier() {
+        return b64url(crypto.getRandomValues(new Uint8Array(32)));
+      }
+
+      function packState(nonce, ret) {
+        return b64url(new TextEncoder().encode(JSON.stringify({ n: nonce, ret: ret })));
+      }
+
+      function isSafeLanRet(raw) {
+        try {
+          var u = new URL(raw);
+          if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
+          if (!/auth-callback\.html/i.test(u.pathname)) return false;
+          var h = u.hostname.toLowerCase();
+          if (h === 'localhost' || h === '127.0.0.1' || h === '[::1]') return true;
+          if (/^192\.168\.\d{1,3}\.\d{1,3}$/.test(h)) return true;
+          if (/^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(h)) return true;
+          var m = /^172\.(\d{1,2})\.\d{1,3}\.\d{1,3}$/.exec(h);
+          if (m) {
+            var n = Number(m[1]);
+            if (n >= 16 && n <= 31) return true;
+          }
+          return false;
+        } catch (e) {
+          return false;
+        }
+      }
+
+      /** Тот же origin, что у этой страницы — иначе PKCE verifier не найдётся. */
+      function onlineAuthCallbackUrl() {
+        var path = location.pathname || '';
+        if (path.indexOf('/play/') === 0) {
+          return location.origin + '/play/auth-callback.html';
+        }
+        return location.origin + '/auth-callback.html';
+      }
+
+      async function main() {
+        var q = new URLSearchParams(location.search);
+        var lanRet = (q.get('ret') || '').trim();
+        var sb = (q.get('sb') || '').replace(/\/$/, '');
+        var cid = (q.get('cid') || DEFAULT_CID).trim() || DEFAULT_CID;
+        if (!lanRet || !isSafeLanRet(lanRet)) {
+          showErr('Нет безопасного адреса возврата (ожидался LAN …/auth-callback.html).');
+          return;
+        }
+        if (!sb || !/^https:\/\/[\w.-]+\.supabase\.co$/i.test(sb)) {
+          showErr('Не задан URL Supabase (?sb=https://….supabase.co).');
+          return;
+        }
+        if (!window.crypto || !crypto.subtle) {
+          showErr('Нужен HTTPS (эта страница) и WebCrypto.');
+          return;
+        }
+
+        var onlineRet = onlineAuthCallbackUrl();
+        try {
+          sessionStorage.setItem(LAN_FINAL_KEY, lanRet);
+        } catch (e) {
+          showErr('Не удалось сохранить адрес возврата на LAN.');
+          return;
+        }
+
+        var nonce = crypto.randomUUID();
+        var verifier = randomVerifier();
+        var digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+        var challenge = b64url(digest);
+        try {
+          sessionStorage.setItem(PKCE_PREFIX + nonce, verifier);
+        } catch (e) {
+          showErr('Не удалось сохранить PKCE.');
+          return;
+        }
+
+        var bridge = sb + '/functions/v1/vk-oauth-bridge';
+        var vk = new URL('https://id.vk.ru/authorize');
+        vk.searchParams.set('response_type', 'code');
+        vk.searchParams.set('client_id', cid);
+        vk.searchParams.set('redirect_uri', bridge);
+        vk.searchParams.set('state', packState(nonce, onlineRet));
+        vk.searchParams.set('scope', 'vkid.personal_info email');
+        vk.searchParams.set('code_challenge', challenge);
+        vk.searchParams.set('code_challenge_method', 'S256');
+        location.assign(vk.toString());
+      }
+
+      main().catch(function (e) {
+        showErr(e && e.message ? e.message : String(e));
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -23,14 +23,15 @@ export function PlayerMilestonesPanel({
   userId?: string | null;
   compact?: boolean;
 }) {
-  const [goalsOpen, setGoalsOpen] = useState(!compact);
+  /** На телефоне стартуем свёрнутыми — раскрытие по тапу, без «пустых» раскрытых карточек. */
+  const [goalsOpen, setGoalsOpen] = useState(false);
   const [focusId, setFocusId] = useState<MilestoneId | null>(null);
 
   return (
     <div className={['milestones-stack', compact ? 'milestones-stack--compact' : ''].filter(Boolean).join(' ')}>
       <PlayerStarsRewardsPanel
         compact={compact}
-        defaultOpen={!compact}
+        defaultOpen={false}
         skillView={skillView}
         onlineWins={onlineWins}
         elo={elo}

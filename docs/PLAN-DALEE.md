@@ -1,6 +1,8 @@
-# План дальше (актуально на 2026-10-14)
+# План дальше (актуально на 2026-10-21)
 
-Единый ориентир после фундамента. Старые оценки в [APP-WORKPLAN-WS-IAP-CC.md](./APP-WORKPLAN-WS-IAP-CC.md) и [ROADMAP-THREE-FOUNDERS.md](./ROADMAP-THREE-FOUNDERS.md) — контекст; **приоритет работ смотреть сюда**. Очередь офлайн/карман: [VISION-QUEUE.md](./VISION-QUEUE.md).
+Единый ориентир после фундамента. Старые оценки в [APP-WORKPLAN-WS-IAP-CC.md](./APP-WORKPLAN-WS-IAP-CC.md) и [ROADMAP-THREE-FOUNDERS.md](./ROADMAP-THREE-FOUNDERS.md) — контекст; **приоритет работ смотреть сюда**.  
+Очередь офлайн/карман: [VISION-QUEUE.md](./VISION-QUEUE.md).  
+**Канон free / Premium / хосты:** [PRODUCT-TIERS.md](./PRODUCT-TIERS.md).
 
 ---
 
@@ -27,7 +29,7 @@
 | Офлайн-вечеринка / «Подвал» (ПК-хост + QR + APK по LAN) | ✅ эпик 1 — [OFFLINE-PARTY-STATUS.md](./OFFLINE-PARTY-STATUS.md) |
 | **Хост в кармане** (телефон = хост, WebRTC) | 🔲 эпик 2 — скаффолд; **не играбельно** — [POCKET-HOST-WEBRTC.md](./POCKET-HOST-WEBRTC.md) |
 | CC ledger / турниры | scaffold в БД+код, **UI нет**, флаги off |
-| Подписка / магазин / IAP | stub (`#premium`, flags) |
+| Подписка / Premium web | ✅ витрина `#premium` + entitlement; стор/IAP — позже |
 | Интерактивное обучение | ❌ отложено (есть Правила) |
 | APK магазинный (Capacitor / Play) | ❌ не стартовали (LAN-APK для вечеринки — отдельно, ✅) |
 | Tauri **игры** как exe | ❌ **не делаем** (см. ниже) |
@@ -70,19 +72,20 @@
 
 ### Волна 0b — Хост в кармане (WebRTC) — **P0 / следующий продуктовый эпик офлайна**
 
-Не путать с эпиком 1 (ПК-хост + Wi‑Fi). Здесь **телефон хоста = комната**, гости по QR/deep link **без ноутбука**.
+Не путать с эпиком 1 (ПК-хост + Wi‑Fi). Здесь **телефон хоста = комната**, гости по QR/deep link **без ноутбука**.  
+**Продукт:** платный слой (Premium / Special). На витрине `#premium` **не обещать**, пока не играбельно. См. [PRODUCT-TIERS.md](./PRODUCT-TIERS.md).
 
 | # | Задача | Статус |
 |---|--------|--------|
 | 0b.1 | Контракт сообщений + заглушка сессии | ✅ скаффолд (`src/lib/partyHost/webrtc*`) |
 | 0b.2 | Сигналинг (QR SDP / локальный handshake) | 🔲 |
 | 0b.3 | Порт комнатной логики на host-peer | 🔲 |
-| 0b.4 | UI «хост с телефона» + deep link APK | 🔲 |
+| 0b.4 | UI «хост с телефона» + deep link APK + gate Premium | 🔲 |
 | 0b.5 | Прогон 3–4 игрока на реальных телефонах | 🔲 |
 
 Подробнее: [POCKET-HOST-WEBRTC.md](./POCKET-HOST-WEBRTC.md), очередь: [VISION-QUEUE.md](./VISION-QUEUE.md) эпик 2.
 
-**Критерий:** вечеринка без ПК — хост открыл игру на телефоне, гости вошли по QR.
+**Критерий:** вечеринка без ПК — хост с Premium открыл игру на телефоне, гости вошли по QR.
 
 ---
 
@@ -106,8 +109,8 @@
 | 1b.1 | SpaceWeb + `up2down.ru` + SSL + заливка `dist` | ✅ |
 | 1b.2 | Supabase Redirect URLs + VK/Яндекс домены | ✅ |
 | 1b.3 | www → без www (`.htaccess`) | ✅ |
-| 1b.4 | Google Authorized JS origins (`up2down.ru` + www) | 🔲 проверить в Cloud Console |
-| 1b.5 | Чеклист входа без VPN (Яндекс, VK, Google, GitHub) | 🔲 [RU-MIRROR-CHECKLIST.md](./RU-MIRROR-CHECKLIST.md) |
+| 1b.4 | Google Authorized JS origins (`up2down.ru` + www) | ✅ |
+| 1b.5 | Чеклист входа без VPN (Яндекс, VK, Google, GitHub) | ✅ (2026-10-14) |
 | 1b.6 | Памятка двойного деплоя (Vercel + SpaceWeb) | ✅ см. чеклист |
 | 1b.7 | CI / скрипт заливки на SpaceWeb | ⏸ позже |
 
@@ -119,12 +122,14 @@
 
 | # | Задача | Заметка |
 |---|--------|---------|
-| 2.1 | Экран **Подписка / Премиум** (вместо stub `#premium`) | Что входит: полный разбор истории, косметика later |
-| 2.2 | Связка free/premium с `historyAccess` → entitlement | Пока можно тестовый premium без стора |
+| 2.1 | Экран **Подписка / Премиум** (`#premium`) | ✅ витрина + вход из ЛК; LAB косметики — позже |
+| 2.2 | Связка free/premium с `historyAccess` → entitlement | ✅ env / allowlist / session test; стор — позже |
 | 2.3 | Решение по платежам | Web: CloudTips уже есть; IAP — когда APK |
-| 2.4 | Косметика v1 (1–2 темы карт) | После 2.1–2.2 |
+| 2.4 | Косметика v1 (1–2 темы карт) | После живого стора/stable entitlement |
+| 2.5 | Create: **облако/лобби = аккаунт**; панель :3927 = без аккаунта + баннер статуса | ✅ |
+| 2.6 | Канон слоёв в docs | ✅ [PRODUCT-TIERS.md](./PRODUCT-TIERS.md) |
 
-**Критерий:** понятно, за что платят; free не пустой.
+**Критерий:** понятно, за что платят; free не пустой; подвал — free+аккаунт, карман — платно позже.
 
 ---
 
@@ -167,26 +172,56 @@
 
 | Приоритет | Что | Статус |
 |-----------|-----|--------|
-| **P0** | Онлайн WS production | в работе |
+| **P0** | Онлайн WS production (`game.up2down.online`, ветка `main`) | затвор локально; VPS — техдир |
 | **P0** | **Хост в кармане** (WebRTC) | следующий офлайн-эпик |
 | **P0** | Хвосты зеркала РФ (Google origins + чеклист входа) | ops |
 | **P1** | Аудио / EN / статистика / UX онлайн | ✅ |
 | **P1** | Зеркало `up2down.ru` | ✅ ядро |
-| **P2** | Премиум / подписка | stub |
-| **P2** | Косметика | нет |
+| **P2** | Premium web (`#premium` + entitlement) | ✅ витрина |
+| **P2** | Косметика / темы карт (LAB) | после |
+| **P2** | Create: облако+аккаунт; панель free | ✅ |
 | **P3** | CC + турниры | scaffold |
 | **P3** | APK Capacitor (магазин) | нет |
 | **P4** | Обучение / свой Auth | отложено |
+| **P5 / хвост** | Auth hardening (reauth и т.п.) | самый конец |
 | **—** | Tauri-игра | отказ |
+
+---
+
+## Хвост (самый конец, не трогать раньше)
+
+После премиума / доната / стабильного прода — ужесточение Auth (не блокирует альфу):
+
+| # | Задача | Зачем |
+|---|--------|--------|
+| H.1 | Supabase **Secure password change / reauthentication** (сессия старше 24ч → код из письма `{{ .Token }}`) | долгая украденная сессия не сменит пароль без почты |
+| H.2 | По желанию: Secure email change ON (подтверждение со старого + нового) | угон сессии не уведёт email тихо |
+| H.3 | Ящик `support@up2down.online` + mailto в письмах Auth | охранные шаблоны с реальным контактом |
+
+Сейчас достаточно: Custom SMTP ✅, Require current password + форма смены пароля в ЛК.
 
 ---
 
 ## Следующий конкретный шаг
 
-1. Добить ops зеркала: Google origins + прогон входа всех провайдеров без VPN ([RU-MIRROR-CHECKLIST.md](./RU-MIRROR-CHECKLIST.md)).  
-2. Выбрать фокус спринта: **Production WS** *или* **Хост в кармане** (не оба сразу вполсилы).  
-3. Премиум-экран — после одного из P0.
+**Параллельно:** (1) ждать техдира / DNS для `game.up2down.online`; (2) добить product-gates (аккаунт на create подвала; полировка Premium).  
+**Хост в кармане / Play APK** — после зелёного облачного стола и по [PRODUCT-TIERS.md](./PRODUCT-TIERS.md).
+
+| Решение | |
+|---------|--|
+| Публичный WS | `wss://game.up2down.online` · ветка **`main`** |
+| Техдиру | [TECH-DIRECTOR-WS-1PAGE.md](./TECH-DIRECTOR-WS-1PAGE.md) + `updown-ws.env` |
+| Слои продукта | [PRODUCT-TIERS.md](./PRODUCT-TIERS.md) |
+| Подвал :3927 | Free create без аккаунта; баннер статуса; гости без аккаунта |
+| Лобби сайта | Create с аккаунтом |
+| Premium | История + косметика; карман — не обещать до 0b |
+| Карман | Платно (Premium/Special), эпик 2 |
+
+1. Техдир → ready; DNS `game`; Preview smoke → Production.  
+2. Панель :3927 — create без auth + баннер статуса ✅.  
+3. Полировка `#premium` / entitlement по факту.  
+4. Хост в кармане — после живого WS.
 
 ---
 
-*Обновлено: 2026-10-14. Волна 1 и зеркало РФ отмечены выполненными; хост в кармане вынесен в волну 0b.*
+*Обновлено: 2026-10-25. +хвост Auth reauth/support; канон PRODUCT-TIERS; Premium web ✅; подвал create free; облако create +аккаунт; карман — платно позже.*

@@ -1,7 +1,7 @@
 # Handoff для VPS: starkey.agneko.com/updown (порт 3005)
 
-> **Архив / overlay.** Актуальный прод-контракт: [PRODUCTION-WS.md](./PRODUCTION-WS.md).  
-> Этот файл — только пример домена/порта. **Не** пакет для хоста, пока `/api/ready` не зелёный.
+> **Архив / overlay.** Канон продукта: **`wss://game.up2down.online`** — см. [TECH-DIRECTOR-WS-1PAGE.md](./TECH-DIRECTOR-WS-1PAGE.md) и [PRODUCTION-WS.md](./PRODUCTION-WS.md).  
+> Этот файл — только path-пример на `starkey` (порт 3005), если DNS `game` ещё не готов. **Не** пакет для хоста, пока `/api/ready` не зелёный.
 
 Краткий пакет команд под договорённость с техдиректором.  
 Полная общая инструкция: [PRODUCTION-WS.md](./PRODUCTION-WS.md) (устаревшее общее: [TECH-DIRECTOR-ONLINE-SERVER.md](./TECH-DIRECTOR-ONLINE-SERVER.md)).

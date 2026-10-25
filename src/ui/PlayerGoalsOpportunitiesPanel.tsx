@@ -145,7 +145,11 @@ export function PlayerGoalsOpportunitiesPanel({
                     type="button"
                     className="milestones__item-btn"
                     aria-expanded={expanded}
-                    onClick={() => onFocusIdChange(expanded ? null : s.id)}
+                    onClick={(e) => {
+                      onFocusIdChange(expanded ? null : s.id);
+                      /* Chrome Android: :focus-within + transform глушил соседние карточки */
+                      (e.currentTarget as HTMLButtonElement).blur();
+                    }}
                   >
                     <div className="milestones__item-top">
                       <span className="milestones__badge" aria-hidden="true">
@@ -163,7 +167,7 @@ export function PlayerGoalsOpportunitiesPanel({
                           ? t('cabinet.milestonePremiumLock')
                           : isOpen
                             ? t('cabinet.milestoneOpen')
-                            : `${s.current}/${s.target}`}
+                            : t('cabinet.milestoneClosed')}
                       </span>
                     </div>
                     <div
@@ -176,119 +180,125 @@ export function PlayerGoalsOpportunitiesPanel({
                     >
                       <i style={{ width: `${pct}%` }} />
                     </div>
-                    {!expanded && desc ? <p className="milestones__teaser">{desc}</p> : null}
+                    {!expanded ? (
+                      <p className="milestones__teaser">
+                        {desc || how || t('cabinet.milestoneDetailProgress', {
+                          current: s.current,
+                          target: s.target,
+                        })}
+                      </p>
+                    ) : null}
                     <span className="milestones__chev" aria-hidden="true" data-open={expanded ? '1' : '0'} />
                   </button>
 
-                  <div
-                    className={['milestones__detail-wrap', expanded ? 'is-open' : ''].join(' ')}
-                    aria-hidden={!expanded}
-                  >
-                    <div className="milestones__detail-inner">
-                      <div className="milestones__detail">
-                        <div className="milestones__detail-block milestones__detail-block--brief">
-                          <span className="milestones__sec-label">{t('cabinet.milestoneSecBrief')}</span>
-                          {desc ? <p className="milestones__detail-desc">{desc}</p> : null}
-                          <span
-                            className={[
-                              'milestones__stamp',
-                              isOpen
-                                ? 'milestones__stamp--open'
-                                : premiumGate
-                                  ? 'milestones__stamp--premium'
-                                  : 'milestones__stamp--prog',
-                            ].join(' ')}
-                          >
-                            {premiumGate
-                              ? t('cabinet.milestonePremiumStamp')
-                              : isOpen
-                                ? t('cabinet.milestoneUnlockedStamp')
-                                : t('cabinet.milestoneLockedStamp')}
-                          </span>
-                        </div>
-
-                        <div className="milestones__detail-block milestones__detail-block--hud">
-                          <span className="milestones__sec-label">{t('cabinet.milestoneSecProgress')}</span>
-                          <div className="milestones__hud">
-                            <div
+                  {expanded ? (
+                    <div className="milestones__detail-wrap is-open" aria-hidden={false}>
+                      <div className="milestones__detail-inner">
+                        <div className="milestones__detail">
+                          <div className="milestones__detail-block milestones__detail-block--brief">
+                            <span className="milestones__sec-label">{t('cabinet.milestoneSecBrief')}</span>
+                            {desc ? <p className="milestones__detail-desc">{desc}</p> : null}
+                            <span
                               className={[
-                                'milestones__hud-ring',
-                                isOpen ? 'milestones__hud-ring--done' : '',
-                              ]
-                                .filter(Boolean)
-                                .join(' ')}
-                              style={{ ['--m-pct' as string]: `${pct}` }}
-                              aria-hidden="true"
+                                'milestones__stamp',
+                                isOpen
+                                  ? 'milestones__stamp--open'
+                                  : premiumGate
+                                    ? 'milestones__stamp--premium'
+                                    : 'milestones__stamp--prog',
+                              ].join(' ')}
                             >
-                              <span className="milestones__hud-ring-glow" />
-                              <strong className="milestones__hud-pct">
-                                {isOpen ? '✓' : t('cabinet.milestonePctLabel', { pct })}
-                              </strong>
-                            </div>
-                            <div className="milestones__hud-meta">
-                              <p className="milestones__hud-frac">
-                                {t('cabinet.milestoneDetailProgress', {
-                                  current: s.current,
-                                  target: s.target,
-                                })}
-                              </p>
-                              {isOpen ? (
-                                <p className="milestones__hud-note">{t('cabinet.milestoneDetailDone')}</p>
-                              ) : (
-                                <p className="milestones__hud-note">
-                                  {t('cabinet.milestoneRemaining', {
-                                    n: Math.max(0, s.target - s.current),
+                              {premiumGate
+                                ? t('cabinet.milestonePremiumStamp')
+                                : isOpen
+                                  ? t('cabinet.milestoneUnlockedStamp')
+                                  : t('cabinet.milestoneLockedStamp')}
+                            </span>
+                          </div>
+
+                          <div className="milestones__detail-block milestones__detail-block--hud">
+                            <span className="milestones__sec-label">{t('cabinet.milestoneSecProgress')}</span>
+                            <div className="milestones__hud">
+                              <div
+                                className={[
+                                  'milestones__hud-ring',
+                                  isOpen ? 'milestones__hud-ring--done' : '',
+                                ]
+                                  .filter(Boolean)
+                                  .join(' ')}
+                                style={{ ['--m-pct' as string]: `${pct}` }}
+                                aria-hidden="true"
+                              >
+                                <span className="milestones__hud-ring-glow" />
+                                <strong className="milestones__hud-pct">
+                                  {isOpen ? '✓' : t('cabinet.milestonePctLabel', { pct })}
+                                </strong>
+                              </div>
+                              <div className="milestones__hud-meta">
+                                <p className="milestones__hud-frac">
+                                  {t('cabinet.milestoneDetailProgress', {
+                                    current: s.current,
+                                    target: s.target,
                                   })}
                                 </p>
-                              )}
+                                {isOpen ? (
+                                  <p className="milestones__hud-note">{t('cabinet.milestoneDetailDone')}</p>
+                                ) : (
+                                  <p className="milestones__hud-note">
+                                    {t('cabinet.milestoneRemaining', {
+                                      n: Math.max(0, s.target - s.current),
+                                    })}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            <div
+                              className="milestones__hud-track"
+                              role="progressbar"
+                              aria-valuenow={pct}
+                              aria-valuemin={0}
+                              aria-valuemax={100}
+                            >
+                              <i style={{ width: `${pct}%` }} />
+                              <span className="milestones__hud-track-glow" style={{ left: `${pct}%` }} />
                             </div>
                           </div>
-                          <div
-                            className="milestones__hud-track"
-                            role="progressbar"
-                            aria-valuenow={pct}
-                            aria-valuemin={0}
-                            aria-valuemax={100}
-                          >
-                            <i style={{ width: `${pct}%` }} />
-                            <span className="milestones__hud-track-glow" style={{ left: `${pct}%` }} />
-                          </div>
-                        </div>
 
-                        {how ? (
-                          <div className="milestones__detail-block milestones__detail-block--how">
-                            <span className="milestones__sec-label">{t('cabinet.milestoneSecHow')}</span>
-                            <p className="milestones__detail-how">{how}</p>
-                          </div>
-                        ) : null}
+                          {how ? (
+                            <div className="milestones__detail-block milestones__detail-block--how">
+                              <span className="milestones__sec-label">{t('cabinet.milestoneSecHow')}</span>
+                              <p className="milestones__detail-how">{how}</p>
+                            </div>
+                          ) : null}
 
-                        <div className="milestones__detail-block milestones__detail-block--prize">
-                          <span className="milestones__sec-label">{t('cabinet.milestoneSecPrize')}</span>
-                          <div className="milestones__prize">
-                            <span className="milestones__prize-glyph" aria-hidden="true">
-                              <MilestoneGlyph id={s.id} />
-                            </span>
-                            {s.reward.frameId ? (
-                              <img
-                                src={frameSrc(s.reward.frameId)}
-                                alt=""
-                                className="milestones__prize-frame"
-                              />
-                            ) : null}
-                            <div className="milestones__prize-copy">
-                              <span className="milestones__kind">{rewardKindLabel(t, s)}</span>
-                              <strong className="milestones__prize-name">{rewardLabel(t, s)}</strong>
-                              {isOpen ? (
-                                <em className="milestones__prize-hint">{t('cabinet.milestoneDetailDone')}</em>
-                              ) : s.reward.frameId ? (
-                                <em className="milestones__prize-hint">{t('cabinet.avatarFrameLockedGoal')}</em>
+                          <div className="milestones__detail-block milestones__detail-block--prize">
+                            <span className="milestones__sec-label">{t('cabinet.milestoneSecPrize')}</span>
+                            <div className="milestones__prize">
+                              <span className="milestones__prize-glyph" aria-hidden="true">
+                                <MilestoneGlyph id={s.id} />
+                              </span>
+                              {s.reward.frameId ? (
+                                <img
+                                  src={frameSrc(s.reward.frameId)}
+                                  alt=""
+                                  className="milestones__prize-frame"
+                                />
                               ) : null}
+                              <div className="milestones__prize-copy">
+                                <span className="milestones__kind">{rewardKindLabel(t, s)}</span>
+                                <strong className="milestones__prize-name">{rewardLabel(t, s)}</strong>
+                                {isOpen ? (
+                                  <em className="milestones__prize-hint">{t('cabinet.milestoneDetailDone')}</em>
+                                ) : s.reward.frameId ? (
+                                  <em className="milestones__prize-hint">{t('cabinet.avatarFrameLockedGoal')}</em>
+                                ) : null}
+                              </div>
                             </div>
                           </div>
                         </div>
                       </div>
                     </div>
-                  </div>
+                  ) : null}
                 </li>
               );
             })}

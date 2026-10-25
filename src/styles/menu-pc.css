@@ -1685,12 +1685,13 @@
     isolation: isolate;
     display: block;
     width: max-content;
-    max-width: min(380px, calc(100vw - 24px));
+    max-width: min(420px, calc(100vw - 24px));
     padding: 8px 14px;
     border-radius: 11px;
     border: 2px solid transparent;
     pointer-events: none;
     overflow: visible;
+    box-sizing: border-box;
     transform: translate(-50%, calc(-100% - 2px));
     background-color: #0e0c2a;
     background-image:
@@ -1719,7 +1720,7 @@
 
   .menu-capsule-cosmic-tip__text.game-table-tooltip-cosmic-body-text {
     margin: 0;
-    display: inline-block;
+    display: block;
     max-width: 100%;
     font-size: 12.5px;
     font-weight: 650;
@@ -1740,7 +1741,16 @@
     background-clip: text;
     color: transparent;
     -webkit-text-fill-color: transparent;
-    white-space: nowrap;
+    /* Перенос по умолчанию — nowrap постоянно обрезал длинные RU-строки */
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .menu-capsule-cosmic-tip--wrap .menu-capsule-cosmic-tip__text.game-table-tooltip-cosmic-body-text {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 
   .menu-capsule-cosmic-tip__detail {
@@ -1770,7 +1780,7 @@
 
   .menu-capsule-cosmic-tip--wide.game-table-tooltip-cosmic {
     width: max-content;
-    max-width: min(340px, calc(100vw - 24px));
+    max-width: min(420px, calc(100vw - 24px));
     padding: 10px 14px;
     overflow: visible;
   }
@@ -1778,7 +1788,7 @@
   .menu-capsule-cosmic-tip--wide .menu-capsule-cosmic-tip__text.game-table-tooltip-cosmic-body-text {
     white-space: normal;
     overflow-wrap: anywhere;
-    word-break: normal;
+    word-break: break-word;
     hyphens: auto;
   }
 

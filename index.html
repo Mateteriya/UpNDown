@@ -13,6 +13,24 @@
       })();
     </script>
     <script>
+      /**
+       * Confirm email / recovery: hash с токеном на тяжёлом SPA → лёгкий auth-callback
+       * ДО загрузки CSS/React (иначе «висит минутами» на другом ПК).
+       */
+      (function () {
+        try {
+          var path = location.pathname || '';
+          if (/auth-callback\.html/i.test(path)) return;
+          var h = location.hash || '';
+          if (!/access_token=/i.test(h)) return;
+          if (!/type=(signup|recovery|email_change|invite|magiclink|email)/i.test(h)) return;
+          var dest = path.indexOf('/play') === 0 ? '/play/auth-callback.html' : '/auth-callback.html';
+          var hashBody = h.charAt(0) === '#' ? h.slice(1) : h;
+          location.replace(dest + (location.search || '') + '#' + hashBody);
+        } catch (e) {}
+      })();
+    </script>
+    <script>
       (function(){var d=document,h=d.documentElement;h.classList.remove('theme-neon');h.classList.add('theme-standard');h.classList.remove('system-dark');h.classList.add('system-light');h.setAttribute('data-theme','standard');try{localStorage.setItem('updown-theme','standard')}catch(e){}var m=d.querySelector('meta[name="color-scheme"]');if(m)m.setAttribute('content','only light');try{var t=localStorage.getItem('updown-card-theme');if(!t&&localStorage.getItem('updown-card-palette-lock')==='1')t='dark';if(t&&t!=='standard')h.classList.add('updown-card-palette-lock');else h.classList.remove('updown-card-palette-lock')}catch(e2){}})();
     </script>
     <script>

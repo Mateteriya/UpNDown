@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { AIDifficulty } from '../game/GameEngine';
+import { useT } from '../i18n';
 import { OfflineAiDifficultyOptionList } from './OfflineAiDifficultyOptionList';
 
 type Props = {
@@ -17,6 +18,7 @@ type Props = {
 };
 
 export function OfflineAiDifficultyPopover({ open, anchorEl, playerName, current, onSelect, onClose }: Props) {
+  const t = useT();
   const layerRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ top: 0, left: 0 });
 
@@ -80,15 +82,15 @@ export function OfflineAiDifficultyPopover({ open, anchorEl, playerName, current
         maxWidth: 'min(92vw, 300px)',
       }}
       role="dialog"
-      aria-label={`Уровень сложности: ${playerName}`}
+      aria-label={t('ai.levelNamed', { name: playerName })}
       onPointerDown={(e) => e.stopPropagation()}
     >
       <div className="ai-difficulty-popover-head">
-        <div className="ai-difficulty-popover-title">Бот: {playerName}</div>
+        <div className="ai-difficulty-popover-title">{t('ai.botTitle', { name: playerName })}</div>
         <button
           type="button"
           className="ai-difficulty-popover-dismiss"
-          aria-label="Закрыть"
+          aria-label={t('common.close')}
           onClick={(e) => {
             e.stopPropagation();
             onClose();
