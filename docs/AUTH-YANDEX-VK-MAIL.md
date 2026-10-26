@@ -317,16 +317,18 @@ VK ID требует **базовый домен** страницы, с кото
 | LAN `http://IP:3001/play/` | да | да через мост |
 | Vite `localhost` / `:5173` | да | да через мост |
 
-Цепочка (LAN / `up2down.ru` / preview — всё, кроме канона `up2down.online`):
+Цепочка (LAN / `up2down.ru` / preview — всё, кроме канона `up2down.online`) — **✅ быстро, 2026-10-26**:
 
 1. Игрок жмёт **VK ID · Mail.ru**.
 2. Браузер → `https://up2down.online/vk-lan-bridge.html?ret=<auth-callback текущего origin>&…`
-3. Мост пишет PKCE и уводит в VK (базовый домен = online).
-4. VK → Edge `vk-oauth-bridge` → **online** `auth-callback.html?vk_bridge=1`.
-5. Exchange → hop на `ret` с `#access_token=…`.
-6. Локальный callback → `setSession` → домой.
+3. Мост кладёт PKCE **в `state.v`** и уводит в VK (базовый домен = online).
+4. VK → Edge `vk-oauth-bridge`: **обмен на сервере** → **HTTP 302** сразу на `ret` с `#access_token=…`  
+   (телефон **не** грузит online `auth-callback` и **не** POST'ит в supabase.co — иначе из РФ десятки секунд).
+5. Локальный callback → `setSession` → домой.
 
-На самом **up2down.online** мост не нужен — прямой старт.
+Не делать HTML+`location.replace` с домена `*.supabase.co` — CSP режет inline script → вечный экран «Вход…».
+
+На самом **up2down.online** страничный мост не нужен — прямой старт; verifier тоже в `state.v`, exchange на том же Edge.
 
 **Прод:** `vk-lan-bridge.html` в корне online; в `vercel.json` файл **исключён** из SPA-rewrite (иначе отдаётся меню вместо моста).  
 `needsVkidLanBridge()` / `VKID_CANONICAL_HOST` в `src/lib/oauthProviders.ts`.
