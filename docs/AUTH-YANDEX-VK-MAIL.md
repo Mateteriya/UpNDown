@@ -409,9 +409,10 @@ node scripts/fix-vkid-custom-provider.mjs
 ```
 
 **Актуальный вход VK (прямой, без GoTrue custom OAuth):**  
-игра → PKCE → VK → `vk-oauth-bridge` → `auth-callback?vk_bridge=1` → `vk-oauth-exchange` → `setSession`.  
+игра → PKCE (`state.v`) → VK → `vk-oauth-bridge` (exchange + **302** `#tokens`) → `auth-callback` → `setSession`.  
+Запасной путь: `auth-callback?vk_bridge=1` → POST `vk-oauth-exchange`.  
 Так обходим `Unable to exchange… vk2`, `oauth_client_state_not_found` и «вспышку» сессии.  
-Код: `src/lib/vkidDirectOAuth.ts`, `supabase/functions/vk-oauth-bridge`, `vk-oauth-exchange`.
+Код: `src/lib/vkidDirectOAuth.ts`, `public/vk-lan-bridge.html`, `supabase/functions/vk-oauth-bridge`, `vk-oauth-exchange`, `_shared/vkExchangeSession.ts`.
 
 Redirect в кабинете VK по-прежнему:
 
@@ -467,13 +468,13 @@ Secret в чат **не** кидайте — только в Supabase.
 
 - [x] Яндекс: Callback + scopes + `custom:yandex` (уже работает в проде/LAN)
 - [x] SQL party claim `20261009140000_party_claim_receipts.sql` (применён)
-- [x] VK: кнопка скрыта на LAN/localhost (Party Version)
-- [ ] VK ID: базовый домен = `up2down.online`
-- [ ] VK ID: Redirect = **`…/functions/v1/vk-oauth-bridge`** (не `/auth/v1/callback`)
-- [ ] Edge Functions `vk-oauth-*` задеплоены + `VK_CLIENT_ID` secret
-- [ ] `node scripts/fix-vkid-custom-provider.mjs` (или ручные URL в V4)
-- [ ] VK ID: право **email**  
-- [ ] Тест на **проде** Incognito: VK → кабинет (без `Unable to exchange… vk2`)
+- [x] VK: LAN через `vk-lan-bridge` + Edge exchange + 302 hop (мгновенно, 2026-10-26)
+- [x] VK ID: базовый домен = `up2down.online`
+- [x] VK ID: Redirect = **`…/functions/v1/vk-oauth-bridge`** (не `/auth/v1/callback`)
+- [x] Edge Functions `vk-oauth-bridge` / `vk-oauth-exchange` задеплоены + `VK_CLIENT_ID` secret
+- [ ] `node scripts/fix-vkid-custom-provider.mjs` (или ручные URL в V4) — опц., legacy GoTrue
+- [x] VK ID: право **email**
+- [x] Тест LAN/телефон + прод: VK → кабинет (без `Unable to exchange… vk2`)
 - [ ] Redirect URLs игры в Supabase URL Configuration (те же, что для Яндекса)
 - [ ] (далее) RU-зеркало статики без Vercel — см. план после VK  
 
