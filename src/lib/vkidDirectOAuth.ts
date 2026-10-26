@@ -43,8 +43,9 @@ async function challengeS256(verifier: string): Promise<string> {
   return b64url(digest);
 }
 
-function packState(nonce: string, ret: string): string {
-  return b64url(new TextEncoder().encode(JSON.stringify({ n: nonce, ret })));
+/** v = PKCE verifier: Edge bridge делает exchange и сразу отдаёт #tokens. */
+function packState(nonce: string, ret: string, verifier: string): string {
+  return b64url(new TextEncoder().encode(JSON.stringify({ n: nonce, ret, v: verifier })));
 }
 
 function bridgeRedirectUri(): string {
@@ -107,7 +108,7 @@ export async function startVkidDirectOAuth(): Promise<{ error: Error | null }> {
     vk.searchParams.set('response_type', 'code');
     vk.searchParams.set('client_id', VK_CLIENT_ID);
     vk.searchParams.set('redirect_uri', bridgeRedirectUri());
-    vk.searchParams.set('state', packState(nonce, ret));
+    vk.searchParams.set('state', packState(nonce, ret, verifier));
     /** Пробел, не запятая — см. доки VK ID scopes. */
     vk.searchParams.set('scope', 'vkid.personal_info email');
     vk.searchParams.set('code_challenge', challenge);

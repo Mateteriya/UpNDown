@@ -28,8 +28,8 @@
   <script>
     /**
      * Старт VK OAuth с канона up2down.online (базовый домен в кабинете VK).
-     * PKCE verifier на ЭТОМ origin → state.ret = online auth-callback.
-     * Финальный возврат (LAN / .ru / preview) в sessionStorage → hop после exchange.
+     * PKCE verifier в state (поле v) → Edge bridge сам exchange → #tokens на ?ret=.
+     * Телефон больше не грузит online auth-callback и не POST'ит в supabase.co.
      */
     (function () {
       var DEFAULT_CID = '54819532';
@@ -57,8 +57,13 @@
         return b64url(crypto.getRandomValues(new Uint8Array(32)));
       }
 
-      function packState(nonce, ret) {
-        return b64url(new TextEncoder().encode(JSON.stringify({ n: nonce, ret: ret })));
+      /** v = PKCE: обмен на Edge-мосте → сразу #tokens на ret (без online auth-callback). */
+      function packState(nonce, ret, verifier) {
+        return b64url(
+          new TextEncoder().encode(
+            JSON.stringify({ n: nonce, ret: ret, v: verifier }),
+          ),
+        );
       }
 
       function isSafeReturn(raw) {
@@ -84,14 +89,6 @@
         }
       }
 
-      function onlineAuthCallbackUrl() {
-        var path = location.pathname || '';
-        if (path.indexOf('/play/') === 0) {
-          return location.origin + '/play/auth-callback.html';
-        }
-        return location.origin + '/auth-callback.html';
-      }
-
       async function main() {
         var q = new URLSearchParams(location.search);
         var finalRet = (q.get('ret') || '').trim();
@@ -113,12 +110,15 @@
           return;
         }
 
-        var onlineRet = onlineAuthCallbackUrl();
+        /**
+         * ret = финальный auth-callback (LAN / .ru / online).
+         * Verifier в state → Edge сам exchange → HTML-hop с #tokens сюда.
+         * (Раньше: online callback + POST с телефона ≈ десятки секунд из РФ.)
+         */
         try {
           sessionStorage.setItem(LAN_FINAL_KEY, finalRet);
         } catch (e) {
-          showErr('Не удалось сохранить адрес возврата.');
-          return;
+          /* необязательно при server-side exchange */
         }
 
         var nonce = crypto.randomUUID();
@@ -128,8 +128,7 @@
         try {
           sessionStorage.setItem(PKCE_PREFIX + nonce, verifier);
         } catch (e) {
-          showErr('Не удалось сохранить PKCE.');
-          return;
+          /* cookie/state достаточно */
         }
         try {
           document.cookie =
@@ -139,7 +138,7 @@
             encodeURIComponent(verifier) +
             '; Max-Age=600; Path=/; Secure; SameSite=Lax';
         } catch (e2) {
-          /* sessionStorage уже есть */
+          /* ignore */
         }
 
         var bridge = sb + '/functions/v1/vk-oauth-bridge';
@@ -147,7 +146,7 @@
         vk.searchParams.set('response_type', 'code');
         vk.searchParams.set('client_id', cid);
         vk.searchParams.set('redirect_uri', bridge);
-        vk.searchParams.set('state', packState(nonce, onlineRet));
+        vk.searchParams.set('state', packState(nonce, finalRet, verifier));
         vk.searchParams.set('scope', 'vkid.personal_info email');
         vk.searchParams.set('code_challenge', challenge);
         vk.searchParams.set('code_challenge_method', 'S256');
