@@ -122,37 +122,81 @@ export async function loadProfileFromSupabase(userId: string): Promise<LoadProfi
   }
 }
 
-/** Сохранить профиль в Supabase (upsert по user_id). При успехе подтягивает сжатый аватар в localStorage. */
-export async function saveProfileToSupabase(userId: string, profile: PlayerProfile): Promise<boolean> {
+/**
+ * Сохранить профиль в Supabase (upsert по user_id).
+ * Важно: если аватар был, но не влез после сжатия — НЕ пишем null в облако
+ * (иначе на другом устройстве «слетает» фотка навсегда).
+ */
+export async function saveProfileToSupabase(
+  userId: string,
+  profile: PlayerProfile,
+  opts?: { clearAvatar?: boolean },
+): Promise<boolean> {
   if (!supabase) return false;
   const client = supabase;
   try {
+    const hadAvatar = Boolean(profile.avatarDataUrl && profile.avatarDataUrl.length >= 32);
     let avatar = await fitAvatarForCloud(profile.avatarDataUrl);
+    if (hadAvatar && !avatar && !opts?.clearAvatar) {
+      /* Дожать JPEG ещё сильнее, прежде чем сдаться. */
+      avatar =
+        (await prepareAvatarForOnlineRoom(profile.avatarDataUrl, ONLINE_CLOUD_AVATAR_MAX_CHARS)) ??
+        (await prepareAvatarForOnlineRoom(profile.avatarDataUrl, Math.floor(ONLINE_CLOUD_AVATAR_MAX_CHARS * 0.6))) ??
+        null;
+    }
     const updatedAt = profile.updatedAt ?? new Date().toISOString();
-    const write = async (avatarDataUrl: string | null) =>
-      client.from(PROFILES_TABLE).upsert(
-        {
-          user_id: userId,
-          display_name: profile.displayName,
-          avatar_data_url: avatarDataUrl,
-          profile_id: profile.profileId ?? '',
-          updated_at: updatedAt,
-        },
-        { onConflict: 'user_id' },
-      );
+    const baseRow = {
+      user_id: userId,
+      display_name: profile.displayName,
+      profile_id: profile.profileId ?? '',
+      updated_at: updatedAt,
+    };
 
-    let { error } = await write(avatar);
-    if (error && avatar && avatar.length > ONLINE_CLOUD_AVATAR_MAX_CHARS) {
-      avatar = (await prepareAvatarForOnlineRoom(avatar, ONLINE_CLOUD_AVATAR_MAX_CHARS)) ?? null;
-      ({ error } = await write(avatar));
+    const write = async (avatarDataUrl: string | null | undefined) => {
+      const row =
+        avatarDataUrl === undefined
+          ? baseRow
+          : { ...baseRow, avatar_data_url: avatarDataUrl };
+      return client.from(PROFILES_TABLE).upsert(row, { onConflict: 'user_id' });
+    };
+
+    /** Явная очистка / нет аватара → null; сжатие не удалось при имеющемся → не трогаем колонку. */
+    let avatarField: string | null | undefined;
+    if (opts?.clearAvatar || (!hadAvatar && !profile.avatarDataUrl)) {
+      avatarField = null;
+    } else if (avatar) {
+      avatarField = avatar;
+    } else if (hadAvatar) {
+      console.warn('[profileSync] avatar too large for cloud — keep previous avatar_data_url');
+      avatarField = undefined;
+    } else {
+      avatarField = null;
+    }
+
+    let { error } = await write(avatarField);
+    if (error && avatarField && avatarField.length > ONLINE_CLOUD_AVATAR_MAX_CHARS) {
+      const smaller =
+        (await prepareAvatarForOnlineRoom(avatarField, ONLINE_CLOUD_AVATAR_MAX_CHARS)) ?? null;
+      if (smaller) {
+        avatarField = smaller;
+        ({ error } = await write(avatarField));
+      }
     }
     if (error) {
       console.warn('[profileSync] save failed', error.message);
       return false;
     }
-    if (avatar !== (profile.avatarDataUrl ?? null)) {
-      const localCache = await fitAvatarForLocalCache(avatar);
-      savePlayerProfile({ ...profile, avatarDataUrl: localCache, updatedAt });
+    if (typeof avatarField === 'string' && avatarField !== (profile.avatarDataUrl ?? null)) {
+      const localCache = await fitAvatarForLocalCache(avatarField);
+      savePlayerProfile({ ...profile, avatarDataUrl: localCache ?? profile.avatarDataUrl, updatedAt });
+    } else if (avatarField === undefined && hadAvatar) {
+      /* Имя ушло в облако; локальный полный аватар оставляем. */
+      savePlayerProfile({
+        displayName: profile.displayName,
+        profileId: profile.profileId,
+        updatedAt,
+        avatarDataUrl: undefined,
+      });
     }
     return true;
   } catch (e) {

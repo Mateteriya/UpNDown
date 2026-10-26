@@ -173,8 +173,27 @@ function App() {
   const [roomFinishedMessage, setRoomFinishedMessage] = useState<string | null>(null)
   const [onlineResumeMessage, setOnlineResumeMessage] = useState<string | null>(null)
 
+  /** Не затирать облачный аватар в памяти пустым/урезанным кэшем из LS при смене экрана. */
   useEffect(() => {
-    setProfile(getPlayerProfile())
+    const stored = getPlayerProfile()
+    setProfile((prev) => {
+      const storedAv = stored.avatarDataUrl ?? null
+      const prevAv = prev.avatarDataUrl ?? null
+      const keepPrevAvatar =
+        Boolean(prevAv) && (!storedAv || prevAv.length > storedAv.length + 2048)
+      const name =
+        stored.displayName?.trim() && stored.displayName !== 'Вы'
+          ? stored.displayName
+          : prev.displayName?.trim() && prev.displayName !== 'Вы'
+            ? prev.displayName
+            : stored.displayName
+      return {
+        ...stored,
+        displayName: name,
+        avatarDataUrl: keepPrevAvatar ? prevAv : storedAv,
+        profileId: stored.profileId || prev.profileId,
+      }
+    })
   }, [screen])
 
   /** Deep link: updown://join?code= / Capacitor appUrlOpen → сразу «Вход в комнату». */
@@ -424,7 +443,7 @@ function App() {
         const account = adoptAccountProfile(loaded.profile)
         /* UI: полный облачный PNG (плашка). LS: крошечный JPEG лица — иначе logout в ЛК */
         const remoteAvatar = account.avatarDataUrl ?? null
-        const localCache = await fitAvatarForLocalCache(remoteAvatar)
+        const localCache = remoteAvatar ? await fitAvatarForLocalCache(remoteAvatar) : null
         if (cancelled) return
         const next: PlayerProfile = {
           ...account,
@@ -435,11 +454,19 @@ function App() {
           updatedAt: account.updatedAt ?? new Date().toISOString(),
         }
         const cur = getPlayerProfile()
-        const cacheChanged = (cur.avatarDataUrl ?? null) !== (localCache ?? null)
         const metaChanged =
           cur.displayName !== next.displayName || (cur.profileId ?? '') !== (next.profileId ?? '')
-        if (cacheChanged || metaChanged) {
+        /* Не писать null в LS, если облако дало фото, а кэш не влез — иначе смена экрана «съест» аватар. */
+        if (localCache) {
           savePlayerProfile({ ...next, avatarDataUrl: localCache })
+        } else if (metaChanged || !remoteAvatar) {
+          savePlayerProfile({
+            displayName: next.displayName,
+            profileId: next.profileId,
+            updatedAt: next.updatedAt,
+            avatarBgColor: null,
+            avatarDataUrl: remoteAvatar ? undefined : null,
+          })
         }
         setProfile(next)
         return
@@ -474,10 +501,11 @@ function App() {
       const local = getPlayerProfile()
       const localName = local.displayName?.trim()
       if (localName && localName !== DEFAULT_DISPLAY_NAME) {
+        /* Первый вход: имя (+ локальный аватар, если уже был) → облако. Не затирать фото null. */
         const seeded: PlayerProfile = {
           displayName: localName.slice(0, 17),
-          avatarDataUrl: null,
-          avatarBgColor: null,
+          avatarDataUrl: local.avatarDataUrl ?? null,
+          avatarBgColor: local.avatarBgColor ?? null,
           profileId: user.id,
           updatedAt: new Date().toISOString(),
         }
