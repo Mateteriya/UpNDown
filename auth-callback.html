@@ -102,19 +102,12 @@
       }
       function startPulse(baseRu) {
         var t0 = Date.now();
-        var tips = [
-          baseRu,
-          'Ещё секунда — сервер отвечает…',
-          'Почти готово, не обновляйте страницу…',
-        ];
-        var i = 0;
-        setMsg(tips[0]);
+        setMsg(baseRu);
         if (pulseTimer) clearInterval(pulseTimer);
         pulseTimer = setInterval(function () {
-          i = (i + 1) % tips.length;
           var sec = Math.floor((Date.now() - t0) / 1000);
-          setMsg(tips[i] + (sec >= 3 ? ' (' + sec + ' с)' : ''));
-        }, 2200);
+          setMsg(baseRu + (sec > 0 ? ' · ' + sec + ' с' : ''));
+        }, 1000);
       }
       function showErr(t) {
         setBusy(false);
