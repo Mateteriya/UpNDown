@@ -71,15 +71,16 @@ function redirectError(ret: string, desc: string): Response {
   return Response.redirect(u.toString(), 302);
 }
 
-/** Тёмный HTML → location.replace: вместо долгой белой вкладки на 302. */
-function htmlHop(dest: string, title: string): Response {
-  const safe = dest.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
-  const js = JSON.stringify(dest);
-  const body = `<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>${title}</title><style>body{margin:0;min-height:100dvh;display:grid;place-items:center;background:#0f172a;color:#94a3b8;font:15px/1.4 system-ui,sans-serif}.s{width:28px;height:28px;margin:0 auto 14px;border:3px solid #334155;border-top-color:#22d3ee;border-radius:50%;animation:r .7s linear infinite}@keyframes r{to{transform:rotate(360deg)}}</style></head><body><div><div class="s"></div><p>${title}</p></div><script>location.replace(${js})</script><noscript><a href="${safe}">Продолжить</a></noscript></body></html>`;
-  return new Response(body, {
-    status: 200,
+/**
+ * После exchange — только HTTP 302 (не HTML+script).
+ * На *.supabase.co inline script часто режется CSP → вечный «Вход…» и сырой HTML.
+ * Hash в Location современные браузеры сохраняют.
+ */
+function hopToSession(destWithHash: string): Response {
+  return new Response(null, {
+    status: 302,
     headers: {
-      'Content-Type': 'text/html; charset=utf-8',
+      Location: destWithHash,
       'Cache-Control': 'no-store',
     },
   });
@@ -139,7 +140,7 @@ Deno.serve(async (req) => {
       token_type: result.token_type || 'bearer',
       type: 'bearer',
     }).toString();
-    return htmlHop(dest.toString(), 'Вход…');
+    return hopToSession(dest.toString());
   }
 
   /** Legacy: code на клиент (старые вкладки без v в state). */
