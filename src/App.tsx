@@ -43,6 +43,7 @@ import { LobbyScreen } from './ui/LobbyScreen'
 import { OfflinePlayerCountModal, type OfflinePlayerCount } from './ui/OfflinePlayerCountModal'
 import { AccountLkPage, type AccountLkFocus } from './ui/AccountLkPage'
 import { MainMenuScreen } from './ui/MainMenuScreen'
+import { LanDevPartyHint } from './ui/LanDevPartyHint'
 import { ACCOUNT_ROUTE_HASH, isAccountRouteHash } from './lib/accountRoute'
 import { ONLINE_ROUTE_HASH, isOnlineRouteHash } from './lib/onlineRoute'
 import { SUPPORT_ROUTE_HASH, isSupportRouteHash } from './lib/supportRoute'
@@ -825,6 +826,7 @@ function App() {
 
   return (
     <>
+      <LanDevPartyHint />
       {screen === 'menu' && (
         <MainMenuScreen
           displayName={profile.displayName}

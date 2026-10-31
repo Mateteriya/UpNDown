@@ -65,7 +65,7 @@ import { OnlineGameProviderV2 } from './OnlineGameContextV2';
 /** Сообщение при обрыве по таймауту fetch в supabase.ts (~55 с). */
 function formatSupabaseNetworkError(e: unknown): string {
   if (e instanceof DOMException && e.name === 'AbortError') {
-    return 'Нет ответа от Supabase вовремя. Проверьте интернет и VPN. Откройте игру по адресу ПК в Wi‑Fi (http://192.168.…:5173), не localhost. В панели Supabase убедитесь, что проект не на паузе (бесплатный тариф).';
+    return 'Нет ответа от Supabase вовремя. Проверьте интернет и VPN. Вечеринка по Wi‑Fi: http://192.168.…:3001/play/ (npm run party), не Vite :5173 и не localhost. В панели Supabase — проект не на паузе.';
   }
   if (e instanceof Error && (e.name === 'AbortError' || /aborted|abort/i.test(e.message))) {
     return 'Нет ответа от Supabase вовремя. Проверьте интернет, VPN и статус проекта на supabase.com.';

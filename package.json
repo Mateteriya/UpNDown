@@ -23,7 +23,7 @@
     "server:build": "npm run build --prefix server",
     "server:prod-gate-local": "node scripts/ws-prod-gate-local.mjs",
     "host:panel": "npm run server:dev",
-    "build:host-game": "node scripts/gen-favicon.mjs && vite build --config vite.host.config.ts",
+    "build:host-game": "node scripts/gen-favicon.mjs && vite build --config vite.host.config.ts && node scripts/patch-sw-auth-callback.mjs",
     "host:kill": "powershell -ExecutionPolicy Bypass -File scripts/kill-host-ports.ps1",
     "host:app": "node scripts/host-open-browser.mjs",
     "party": "node scripts/party-start.mjs",
