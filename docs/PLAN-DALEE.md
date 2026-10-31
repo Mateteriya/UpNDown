@@ -1,8 +1,9 @@
-# План дальше (актуально на 2026-10-21)
+# План дальше (актуально на 2026-10-31)
 
 Единый ориентир после фундамента. Старые оценки в [APP-WORKPLAN-WS-IAP-CC.md](./APP-WORKPLAN-WS-IAP-CC.md) и [ROADMAP-THREE-FOUNDERS.md](./ROADMAP-THREE-FOUNDERS.md) — контекст; **приоритет работ смотреть сюда**.  
 Очередь офлайн/карман: [VISION-QUEUE.md](./VISION-QUEUE.md).  
-**Канон free / Premium / хосты:** [PRODUCT-TIERS.md](./PRODUCT-TIERS.md).
+**Канон free / Premium:** [PRODUCT-TIERS.md](./PRODUCT-TIERS.md).  
+**Канон хостов (A `.cmd` / B `.exe` / C карман / D облако):** [HOST-MODES-CANON.md](./HOST-MODES-CANON.md).
 
 ---
 
@@ -26,13 +27,15 @@
 | Полировка UX онлайн (зал, реконнект, 3p) | ✅ ядро; точечные баги — по факту |
 | **Зеркало РФ** [up2down.ru](https://up2down.ru) на SpaceWeb | ✅ статика + SSL + OAuth allowlist; деплой **вручную** (`npm run build` → `public_html`) |
 | Мир: [up2down.online](https://up2down.online) (Vercel) | ✅ |
-| Офлайн-вечеринка / «Подвал» (ПК-хост + QR + APK по LAN) | ✅ эпик 1 — `npm run party` (:3001/play/, не Vite :5173); [HOST-UTILITY.md](./HOST-UTILITY.md) |
-| **Хост в кармане** (телефон = хост, WebRTC) | 🔲 эпик 2 — скаффолд; **не играбельно** — [POCKET-HOST-WEBRTC.md](./POCKET-HOST-WEBRTC.md) |
+| Офлайн-вечеринка / «Подвал» ПК (режим **A**) | ✅ эпик 1 — **`Открыть-панель-хоста.cmd`** → :3927 + игра :3001/play/; не :5173 — [HOST-MODES-CANON.md](./HOST-MODES-CANON.md) |
+| Установщик подвала `.exe` (режим **B**, Tauri host) | 🔲 каркас `host-desktop/`; сборка NSIS после Rust — не блокер для семьи |
+| **Хост в кармане** (режим **C**, WebRTC) | 🔲 эпик 2 — скаффолд; **не играбельно** — [POCKET-HOST-WEBRTC.md](./POCKET-HOST-WEBRTC.md) |
+| Облачный WS (режим **D**) | 🔲 ждём техдира — [PRODUCTION-WS.md](./PRODUCTION-WS.md) |
 | CC ledger / турниры | scaffold в БД+код, **UI нет**, флаги off |
 | Подписка / Premium web | ✅ витрина `#premium` + entitlement; стор/IAP — позже |
 | Интерактивное обучение | ❌ отложено (есть Правила) |
 | APK магазинный (Capacitor / Play) | ❌ не стартовали (LAN-APK для вечеринки — отдельно, ✅) |
-| Tauri **игры** как exe | ❌ **не делаем** (см. ниже) |
+| Tauri **игры** как exe (стол в окне) | ❌ **не делаем**; Tauri только упаковка **хоста** (режим B) |
 | Свой Auth + своя БД вместо Supabase | ⏸ бэклог |
 
 ---
@@ -47,7 +50,7 @@
 
 | Тема | Решение |
 |------|---------|
-| **Tauri как десктоп-игра** | Отказ / далеко в бэклог. ПК = браузер (+ PWA). Tauri **host-installer** (панель хоста) — отдельно. |
+| **Tauri как десктоп-игра** | Отказ. Стол = браузер/PWA/APK. Tauri = только **установщик панели хоста** (режим B). |
 | **Интерактивное обучение** | Последняя очередь. Пока хватает «Правила». |
 | **Cash Arena / real money** | Волна 5+, только с юристом. |
 | **Полный уход с Supabase** | После стабильного WS в проде и ясной нужды. |
@@ -204,8 +207,14 @@
 
 ## Следующий конкретный шаг
 
-**Параллельно:** (1) ждать техдира / DNS для `game.up2down.online`; (2) добить product-gates (аккаунт на create подвала; полировка Premium).  
-**Хост в кармане / Play APK** — после зелёного облачного стола и по [PRODUCT-TIERS.md](./PRODUCT-TIERS.md).
+Канон хостов: [HOST-MODES-CANON.md](./HOST-MODES-CANON.md).
+
+| Сейчас | Действие |
+|--------|----------|
+| Дома | Режим **A**: `Открыть-панель-хоста.cmd` → :3927 → семья на :3001/play/; Cursor закрыт |
+| Ждём | Режим **D**: техдир / `game.up2down.online` |
+| Позже | Режим **B** `.exe` (страница «Скачать» + Rust на машине сборки) |
+| Позже | Режим **C** карман (после D / по PRODUCT-TIERS) |
 
 | Решение | |
 |---------|--|
@@ -220,8 +229,8 @@
 1. Техдир → ready; DNS `game`; Preview smoke → Production.  
 2. Панель :3927 — create без auth + баннер статуса ✅.  
 3. Полировка `#premium` / entitlement по факту.  
-4. Хост в кармане — после живого WS.
+4. `.exe` (B) — когда нужна раздача без Node; карман (C) — после живого WS.
 
 ---
 
-*Обновлено: 2026-10-25. +хвост Auth reauth/support; канон PRODUCT-TIERS; Premium web ✅; подвал create free; облако create +аккаунт; карман — платно позже.*
+*Обновлено: 2026-10-31. Канон HOST-MODES (A/B/C/D); подвал = .cmd; Tauri только host-installer; карман/облако позже.*
