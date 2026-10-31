@@ -53,10 +53,26 @@ if (arg === 'kill' || arg === '--kill' || arg === '-k') {
 }
 
 if (!existsSync(distHost)) {
-  console.warn('[host:app] Нет dist-host — QR не заработает. Выполните: npm run build:host-game');
+  console.warn('[host:app] Нет dist-host — собираю игру для QR (npm run build:host-game)…');
+  const built = spawnSync('npm', ['run', 'build:host-game'], {
+    cwd: root,
+    shell: true,
+    stdio: 'inherit',
+  });
+  if (built.status !== 0 || !existsSync(distHost)) {
+    console.error(
+      '[host:app] Сборка не удалась. Вручную: npm run build:host-game\n' +
+        '    Для вечеринки одной командой: npm run party',
+    );
+    process.exit(built.status ?? 1);
+  }
+  console.log('[host:app] dist-host собран.');
 } else {
   console.log('[host:app] Игра для QR: dist-host OK');
 }
+console.log(
+  '[host:app] Гости и вы в игре: http://<LAN-IP>:3001/play/  (не :5173 — Vite только для разработки)',
+);
 
 if (await lanServerUp()) {
   console.log(
