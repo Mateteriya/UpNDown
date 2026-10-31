@@ -26,7 +26,7 @@
 | Полировка UX онлайн (зал, реконнект, 3p) | ✅ ядро; точечные баги — по факту |
 | **Зеркало РФ** [up2down.ru](https://up2down.ru) на SpaceWeb | ✅ статика + SSL + OAuth allowlist; деплой **вручную** (`npm run build` → `public_html`) |
 | Мир: [up2down.online](https://up2down.online) (Vercel) | ✅ |
-| Офлайн-вечеринка / «Подвал» (ПК-хост + QR + APK по LAN) | ✅ эпик 1 — [OFFLINE-PARTY-STATUS.md](./OFFLINE-PARTY-STATUS.md) |
+| Офлайн-вечеринка / «Подвал» (ПК-хост + QR + APK по LAN) | ✅ эпик 1 — `npm run party` (:3001/play/, не Vite :5173); [HOST-UTILITY.md](./HOST-UTILITY.md) |
 | **Хост в кармане** (телефон = хост, WebRTC) | 🔲 эпик 2 — скаффолд; **не играбельно** — [POCKET-HOST-WEBRTC.md](./POCKET-HOST-WEBRTC.md) |
 | CC ledger / турниры | scaffold в БД+код, **UI нет**, флаги off |
 | Подписка / Premium web | ✅ витрина `#premium` + entitlement; стор/IAP — позже |

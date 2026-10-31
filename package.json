@@ -26,6 +26,8 @@
     "build:host-game": "node scripts/gen-favicon.mjs && vite build --config vite.host.config.ts",
     "host:kill": "powershell -ExecutionPolicy Bypass -File scripts/kill-host-ports.ps1",
     "host:app": "node scripts/host-open-browser.mjs",
+    "party": "node scripts/party-start.mjs",
+    "party:rebuild": "node scripts/party-start.mjs --rebuild",
     "host:control": "node scripts/host-control-panel.mjs",
     "party:apk": "node scripts/party-apk.mjs",
     "party:apk:build": "node scripts/party-apk.mjs --build",
